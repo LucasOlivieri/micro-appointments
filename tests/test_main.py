@@ -44,7 +44,7 @@ def user():
 
 @pytest.fixture(autouse=True)
 def isolated_database(tmp_path, monkeypatch):
-    monkeypatch.setattr(main_module, "DATABASE_PATH", tmp_path / "db.sqlite3")
+    monkeypatch.setattr(main_module, "DATABASE_PATH", tmp_path / "testdb.sqlite3")
 
 
 TZ = ZoneInfo("America/Argentina/Buenos_Aires")
@@ -532,7 +532,7 @@ class TestBookAppointment:
     def test_reloaded_user_sees_persisted_booking(self, user):
         main_module.AppointmentsService(main_module.DATABASE_PATH)
         db = sqlite_utils.Database(main_module.DATABASE_PATH)
-        db["users"].insert({
+        db["users"].upsert({
             "id": user["id"],
             "name": "User",
             "email": "user@example.com",

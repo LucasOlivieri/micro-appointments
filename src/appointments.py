@@ -48,8 +48,8 @@ class AppointmentsService:
             elif row["start"] and row["end"]:
                 blocked_times.append({
                     "reason": row["reason"],
-                    "start": row["start"][:10],
-                    "end": row["end"][:10],
+                    "start_date": row["start"][:10],
+                    "end_date": row["end"][:10],
                 })
         return blocked_times
 

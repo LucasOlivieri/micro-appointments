@@ -8,7 +8,7 @@ from src.appointments import AppointmentsService, onaction
 
 @pytest.fixture
 def service(tmp_path):
-    service = AppointmentsService(tmp_path / "db.sqlite3")
+    service = AppointmentsService(tmp_path / "testdb.sqlite3")
     service.db["users"].insert({
         "id": "user-1",
         "name": "User",
