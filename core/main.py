@@ -8,14 +8,20 @@ from .appointments import AppointmentsService
 DATABASE_PATH = Path(__file__).resolve().parent.parent / "db.sqlite3"
 
 
-def _database_blocked_times(user_id, bookings_only=False):
-    service = AppointmentsService(DATABASE_PATH)
+def _database_blocked_times(
+    user_id, bookings_only=False, database_path=None,
+):
+    if database_path is None:
+        database_path = DATABASE_PATH
+    service = AppointmentsService(database_path)
     return service.list_blocked_times(user_id, bookings_only)
 
 
-def load_user(user_id):
+def load_user(user_id, database_path=None):
     """Load a user and its scheduling data from SQLite."""
-    service = AppointmentsService(DATABASE_PATH)
+    if database_path is None:
+        database_path = DATABASE_PATH
+    service = AppointmentsService(database_path)
     user = service.db["users"].get(user_id)
     user["rules"] = list(service.db.query(
         "SELECT id, user, weekday, start, end "
@@ -27,11 +33,17 @@ def load_user(user_id):
         "FROM appointment_types WHERE user = :user_id ORDER BY id",
         {"user_id": user_id},
     ))
-    user["blocked_time"] = _database_blocked_times(user_id)
+    user["blocked_time"] = _database_blocked_times(
+        user_id, database_path=database_path,
+    )
     return user
 
 
-def _refresh_database_blocked_times(user):
+def _refresh_database_blocked_times(
+    user, database_path=None, exclude_start=None,
+):
+    if database_path is None:
+        database_path = DATABASE_PATH
     if "id" in user:
         user["blocked_time"] = [
             block for block in user.get("blocked_time", [])
@@ -41,9 +53,15 @@ def _refresh_database_blocked_times(user):
                 and "end" in block
             )
         ]
-        user["blocked_time"].extend(
-            _database_blocked_times(user["id"], bookings_only=True)
+        bookings = _database_blocked_times(
+            user["id"], bookings_only=True, database_path=database_path,
         )
+        if exclude_start is not None:
+            bookings = [
+                booking for booking in bookings
+                if booking.get("start") != exclude_start
+            ]
+        user["blocked_time"].extend(bookings)
 
 
 def get_appointment_type(user, appointment_type):
@@ -182,10 +200,14 @@ def book_appointment(
     user,
     appointment_type,
     start,
+    database_path=None,
+    exclude_start=None,
 ):
     """
     Book an appointment by adding a 'booked' blocked_time entry.
     """
+    if database_path is None:
+        database_path = DATABASE_PATH
     appt = get_appointment_type(user, appointment_type)
     duration = timedelta(minutes=appt["duration_minutes"])
 
@@ -199,7 +221,7 @@ def book_appointment(
 
     end = start + duration
 
-    _refresh_database_blocked_times(user)
+    _refresh_database_blocked_times(user, database_path, exclude_start)
 
     # Must be inside working hours
     working_hours = get_working_hours(user, start.date())
@@ -226,7 +248,7 @@ def book_appointment(
     if "id" not in user:
         raise ValueError("User must have an id to book an appointment")
 
-    service = AppointmentsService(DATABASE_PATH)
+    service = AppointmentsService(database_path)
     created = service.create_blocked_time({
         "user": user["id"],
         "reason": booking["reason"],

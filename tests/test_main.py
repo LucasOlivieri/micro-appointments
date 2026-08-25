@@ -1,13 +1,13 @@
 """Unit tests for all functions in src/main.py."""
 
-from datetime import datetime, date, time, timedelta
+from datetime import datetime, date
 from zoneinfo import ZoneInfo
 
 import pytest
 import sqlite_utils
 
-import src.main as main_module
-from src.main import (
+import core.main as main_module
+from core.main import (
     get_appointment_type,
     is_blocked,
     get_working_hours,

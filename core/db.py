@@ -1,6 +1,6 @@
 import sqlite_utils
 
-from migrations import migrations
+from core.migrations import migrations
 
 
 def get_db(path="db.sqlite3"):

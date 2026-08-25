@@ -53,6 +53,36 @@ class AppointmentsService:
                 })
         return blocked_times
 
+    def list_appointments(self, user_id, appointment_type=None):
+        query = (
+            "SELECT id, user, reason, start, end, appointment_type "
+            "FROM blocked_times "
+            "WHERE user = :user_id AND reason = 'booked'"
+        )
+        params = {"user_id": user_id}
+        if appointment_type is not None:
+            query += " AND lower(appointment_type) = lower(:appointment_type)"
+            params["appointment_type"] = appointment_type
+        query += " ORDER BY start, id"
+        return list(self.db.query(query, params))
+
+    def get_appointment(self, user_id, appointment_id):
+        rows = self.db.query(
+            "SELECT id, user, reason, start, end, appointment_type "
+            "FROM blocked_times "
+            "WHERE id = :appointment_id AND user = :user_id "
+            "AND reason = 'booked'",
+            {"appointment_id": appointment_id, "user_id": user_id},
+        )
+        return next(iter(rows), None)
+
+    def delete_appointment(self, user_id, appointment_id):
+        appointment = self.get_appointment(user_id, appointment_id)
+        if appointment is None:
+            return None
+        self.db["blocked_times"].delete(appointment_id)
+        return appointment
+
     def create_blocked_time(self, item):
         item = dict(item)
         table = self.db["blocked_times"]

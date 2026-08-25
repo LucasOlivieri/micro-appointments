@@ -1,9 +1,7 @@
-import sqlite_utils
-
 import pytest
 
-import src.appointments as appointments_module
-from src.appointments import AppointmentsService, onaction
+import core.appointments as appointments_module
+from core.appointments import AppointmentsService, onaction
 
 
 @pytest.fixture

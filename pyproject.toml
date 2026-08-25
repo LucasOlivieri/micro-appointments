@@ -8,8 +8,10 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "fastapi>=0.115.0",
     "sqlite-utils>=4.2.1",
     "tzlocal>=5.0",
+    "uvicorn>=0.30.0",
 ]
 
 [dependency-groups]
