@@ -26,6 +26,15 @@ def build_tools(api_url: str):
     client = AppointmentsApiClient(api_url)
 
     @function_tool
+    async def list_users() -> list[dict[str, Any]]:
+        """List users whose calendars are available for appointments.
+
+        Use the returned user id when searching availability, scheduling, or
+        listing appointments for a selected user.
+        """
+        return await client.request("GET", "/users")
+
+    @function_tool
     async def find_available_slots(
         user_id: str,
         appointment_type: str,
@@ -106,6 +115,7 @@ def build_tools(api_url: str):
         )
 
     return [
+        list_users,
         find_available_appointment_types,
         find_available_slots,
         list_user_appointments,

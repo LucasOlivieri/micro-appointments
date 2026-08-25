@@ -49,6 +49,12 @@ class AvailableAppointmentType(BaseModel):
     duration_minutes: int
 
 
+class User(BaseModel):
+    id: str
+    name: str
+    timezone: str
+
+
 def _not_found(detail: str):
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
@@ -95,6 +101,17 @@ def create_app(database_path: str | Path = DEFAULT_DATABASE_PATH) -> FastAPI:
     ):
         _load_user_or_404(user_id, database_path)
         return _service(database_path).list_appointments(user_id, appointment_type)
+
+    @app.get(
+        "/users",
+        response_model=list[User],
+        summary="List users",
+        description="List users whose calendars can be searched or booked.",
+    )
+    def list_users():
+        return list(_service(database_path).db.query(
+            "SELECT id, name, timezone FROM users ORDER BY name, id"
+        ))
 
     @app.get(
         "/appointments/available-types",

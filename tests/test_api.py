@@ -107,6 +107,30 @@ def test_available_appointment_types_require_existing_user(tmp_path):
     assert response.status_code == 404
 
 
+def test_users_lists_calendar_users(tmp_path):
+    api = client(tmp_path)
+    service = AppointmentsService(tmp_path / "api.sqlite3")
+    service.db["users"].insert({
+        "id": "another-user",
+        "name": "Another User",
+        "email": "another@example.com",
+        "timezone": "UTC",
+    })
+
+    response = api.get("/users")
+
+    assert response.status_code == 200
+    users = response.json()
+    users_by_id = {user["id"]: user for user in users}
+    assert users_by_id["another-user"] == {
+        "id": "another-user", "name": "Another User", "timezone": "UTC",
+    }
+    assert users_by_id[USER_ID] == {
+        "id": USER_ID, "name": "API User", "timezone": TZ,
+    }
+    assert [user["name"] for user in users] == sorted(user["name"] for user in users)
+
+
 def test_available_slots_skip_booked_time_and_validate_type(tmp_path):
     api = client(tmp_path)
     api.post("/appointments", json={
