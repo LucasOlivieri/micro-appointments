@@ -55,23 +55,30 @@ class AppointmentsService:
 
     def list_appointments(self, user_id, appointment_type=None):
         query = (
-            "SELECT id, user, reason, start, end, appointment_type "
+            "SELECT blocked_times.id, blocked_times.user, blocked_times.reason, "
+            "blocked_times.start, blocked_times.end, blocked_times.appointment_type, "
+            "customer.name, customer.phone "
             "FROM blocked_times "
-            "WHERE user = :user_id AND reason = 'booked'"
+            "LEFT JOIN customer ON customer.id = blocked_times.customer "
+            "WHERE blocked_times.user = :user_id AND blocked_times.reason = 'booked'"
         )
         params = {"user_id": user_id}
         if appointment_type is not None:
-            query += " AND lower(appointment_type) = lower(:appointment_type)"
+            query += " AND lower(blocked_times.appointment_type) = lower(:appointment_type)"
             params["appointment_type"] = appointment_type
-        query += " ORDER BY start, id"
+        query += " ORDER BY blocked_times.start, blocked_times.id"
         return list(self.db.query(query, params))
 
     def get_appointment(self, user_id, appointment_id):
         rows = self.db.query(
-            "SELECT id, user, reason, start, end, appointment_type "
+            "SELECT blocked_times.id, blocked_times.user, blocked_times.reason, "
+            "blocked_times.start, blocked_times.end, blocked_times.appointment_type, "
+            "customer.name, customer.phone "
             "FROM blocked_times "
-            "WHERE id = :appointment_id AND user = :user_id "
-            "AND reason = 'booked'",
+            "LEFT JOIN customer ON customer.id = blocked_times.customer "
+            "WHERE blocked_times.id = :appointment_id "
+            "AND blocked_times.user = :user_id "
+            "AND blocked_times.reason = 'booked'",
             {"appointment_id": appointment_id, "user_id": user_id},
         )
         return next(iter(rows), None)

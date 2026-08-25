@@ -202,6 +202,8 @@ def book_appointment(
     start,
     database_path=None,
     exclude_start=None,
+    customer_name=None,
+    customer_phone=None,
 ):
     """
     Book an appointment by adding a 'booked' blocked_time entry.
@@ -248,15 +250,54 @@ def book_appointment(
     if "id" not in user:
         raise ValueError("User must have an id to book an appointment")
 
+    if customer_name is not None and not customer_name.strip():
+        raise ValueError("Customer name is required")
+    if customer_phone is not None and not customer_phone.strip():
+        raise ValueError("Customer phone is required")
+    if (customer_name is None) != (customer_phone is None):
+        raise ValueError("Customer name and phone are required together")
+
     service = AppointmentsService(database_path)
+    customer_id = None
+    if customer_name is not None:
+        customer = next(
+            service.db.query(
+                "SELECT id FROM customer WHERE phone = :phone",
+                {"phone": customer_phone.strip()},
+            ),
+            None,
+        )
+        customer_phone = customer_phone.strip()
+        customer_name = customer_name.strip()
+        if customer is None:
+            service.db["customer"].insert({
+                "id": customer_phone,
+                "phone": customer_phone,
+                "name": customer_name,
+            })
+        else:
+            service.db.execute(
+                "UPDATE customer SET id = :id, name = :name "
+                "WHERE phone = :phone",
+                {
+                    "id": customer_phone,
+                    "name": customer_name,
+                    "phone": customer_phone,
+                },
+            )
+        customer_id = customer_phone
     created = service.create_blocked_time({
         "user": user["id"],
         "reason": booking["reason"],
         "start": booking["start"],
         "end": booking["end"],
         "appointment_type": booking["appointment_type"],
+        **({"customer": customer_id} if customer_id is not None else {}),
     })
     booking["id"] = created["id"]
+    if customer_id is not None:
+        booking["name"] = customer_name
+        booking["phone"] = customer_phone
     user.setdefault("blocked_time", []).append(booking)
 
     return booking

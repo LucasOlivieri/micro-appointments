@@ -57,9 +57,14 @@ def build_tools(api_url: str):
 
     @function_tool
     async def schedule_appointment(
-        user_id: str, appointment_type: str, start: str
+        user_id: str, appointment_type: str, start: str, name: str, phone: str
     ) -> dict[str, Any]:
-        """Schedule an appointment at an ISO 8601 start datetime."""
+        """Schedule an appointment at an ISO 8601 start datetime.
+
+        name and phone are required customer details. Use values already
+        provided in the conversation; otherwise ask the user for them before
+        calling this tool.
+        """
         return await client.request(
             "POST",
             "/appointments",
@@ -67,6 +72,8 @@ def build_tools(api_url: str):
                 "user_id": user_id,
                 "appointment_type": appointment_type,
                 "start": start,
+                "name": name,
+                "phone": phone,
             },
         )
 

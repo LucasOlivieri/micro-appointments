@@ -69,3 +69,13 @@ def setup_user(db):
     db.table("rules").upsert_all(rules)
     db.table("blocked_times").upsert_all(blocked_times)
     db.table("appointment_types").upsert_all(appointment_types)
+
+@migrations()
+def add_customer_column(db):
+    db["customer"].create({
+        "id": str,
+        "phone": str,
+        "name": str,
+        "info": str
+    })
+    db.table("blocked_times").add_column("customer", fk="customer", fk_col="id")

@@ -47,12 +47,16 @@ def test_create_and_list_appointment(tmp_path):
         "user_id": USER_ID,
         "appointment_type": "follow-up",
         "start": "2026-08-24T10:00:00-03:00",
+        "name": "Ada Lovelace",
+        "phone": "+541100000001",
     })
 
     assert response.status_code == 201
     appointment = response.json()
     assert appointment["appointment_type"] == "Follow-up"
     assert appointment["end"] == "2026-08-24T10:15:00-03:00"
+    assert appointment["name"] == "Ada Lovelace"
+    assert appointment["phone"] == "+541100000001"
 
     response = api.get("/appointments", params={"user_id": USER_ID})
     assert response.status_code == 200
@@ -109,6 +113,8 @@ def test_available_slots_skip_booked_time_and_validate_type(tmp_path):
         "user_id": USER_ID,
         "appointment_type": "Follow-up",
         "start": "2026-08-24T10:00:00-03:00",
+        "name": "Ada Lovelace",
+        "phone": "+541100000001",
     })
 
     response = api.get("/appointments/available-slots", params={
@@ -133,6 +139,8 @@ def test_list_filter_is_case_insensitive_and_excludes_blocks(tmp_path):
         "user_id": USER_ID,
         "appointment_type": "Follow-up",
         "start": "2026-08-24T10:00:00-03:00",
+        "name": "Ada Lovelace",
+        "phone": "+541100000001",
     })
     service = AppointmentsService(tmp_path / "api.sqlite3")
     service.create_blocked_time({
@@ -157,6 +165,8 @@ def test_create_reports_conflicts_and_unknown_types(tmp_path):
         "user_id": USER_ID,
         "appointment_type": "Follow-up",
         "start": "2026-08-24T10:00:00-03:00",
+        "name": "Ada Lovelace",
+        "phone": "+541100000001",
     }
     assert api.post("/appointments", json=payload).status_code == 201
     assert api.post("/appointments", json=payload).status_code == 409
@@ -170,6 +180,8 @@ def test_get_and_delete_enforce_ownership(tmp_path):
         "user_id": USER_ID,
         "appointment_type": "Follow-up",
         "start": "2026-08-24T10:00:00-03:00",
+        "name": "Ada Lovelace",
+        "phone": "+541100000001",
     }).json()
 
     assert api.get(f"/appointments/{created['id']}", params={"user_id": "other"}).status_code == 404
@@ -188,11 +200,15 @@ def test_reschedule_revalidates_and_keeps_original_when_conflicting(tmp_path):
         "user_id": USER_ID,
         "appointment_type": "Follow-up",
         "start": "2026-08-24T10:00:00-03:00",
+        "name": "Ada Lovelace",
+        "phone": "+541100000001",
     }).json()
     api.post("/appointments", json={
         "user_id": USER_ID,
         "appointment_type": "Follow-up",
         "start": "2026-08-24T11:00:00-03:00",
+        "name": "Grace Hopper",
+        "phone": "+541100000002",
     })
 
     response = api.patch(f"/appointments/{first['id']}", json={
@@ -211,6 +227,8 @@ def test_reschedule_moves_to_a_free_slot(tmp_path):
         "user_id": USER_ID,
         "appointment_type": "Follow-up",
         "start": "2026-08-24T10:00:00-03:00",
+        "name": "Ada Lovelace",
+        "phone": "+541100000001",
     }).json()
 
     response = api.patch(f"/appointments/{first['id']}", json={

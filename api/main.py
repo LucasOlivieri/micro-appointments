@@ -17,6 +17,8 @@ class AppointmentCreate(BaseModel):
     user_id: str = Field(description="The ID of the user who owns the appointment")
     appointment_type: str = Field(min_length=1, description="Appointment type name")
     start: datetime = Field(description="Appointment start, preferably with a timezone")
+    name: str = Field(min_length=1, description="Customer name")
+    phone: str = Field(min_length=1, description="Customer phone number")
 
 
 class AppointmentUpdate(BaseModel):
@@ -32,6 +34,8 @@ class Appointment(BaseModel):
     start: str
     end: str
     appointment_type: str
+    name: str | None = None
+    phone: str | None = None
 
 
 class AvailableSlot(BaseModel):
@@ -159,6 +163,8 @@ def create_app(database_path: str | Path = DEFAULT_DATABASE_PATH) -> FastAPI:
                 payload.appointment_type,
                 payload.start,
                 database_path=database_path,
+                customer_name=payload.name,
+                customer_phone=payload.phone,
             )
             return _response_appointment(booking, payload.user_id)
         except ValueError as error:
@@ -210,6 +216,8 @@ def create_app(database_path: str | Path = DEFAULT_DATABASE_PATH) -> FastAPI:
                 start,
                 database_path=database_path,
                 exclude_start=existing["start"],
+                customer_name=existing.get("name"),
+                customer_phone=existing.get("phone"),
             )
         except ValueError as error:
             message = str(error)
