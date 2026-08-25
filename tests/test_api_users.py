@@ -1,0 +1,47 @@
+from conftest import API_TIMEZONE, API_USER_ID
+from core.appointments import AppointmentsService
+
+
+def test_available_appointment_types_are_listed_for_user(api):
+    response = api.get(
+        "/appointments/available-types", params={"user_id": API_USER_ID}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"name": "Follow-up", "duration_minutes": 15},
+        {"name": "Initial Consultation", "duration_minutes": 30},
+    ]
+
+
+def test_available_appointment_types_require_existing_user(api):
+    response = api.get(
+        "/appointments/available-types", params={"user_id": "missing"}
+    )
+
+    assert response.status_code == 404
+
+
+def test_users_lists_calendar_users(api, tmp_path):
+    service = AppointmentsService(tmp_path / "api.sqlite3")
+    service.db["users"].insert({
+        "id": "another-user",
+        "name": "Another User",
+        "email": "another@example.com",
+        "timezone": "UTC",
+    })
+
+    response = api.get("/users")
+
+    assert response.status_code == 200
+    users = response.json()
+    users_by_id = {user["id"]: user for user in users}
+    assert users_by_id["another-user"] == {
+        "id": "another-user", "name": "Another User", "timezone": "UTC",
+    }
+    assert users_by_id[API_USER_ID] == {
+        "id": API_USER_ID, "name": "API User", "timezone": API_TIMEZONE,
+    }
+    assert [user["name"] for user in users] == sorted(
+        user["name"] for user in users
+    )
