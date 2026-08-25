@@ -80,8 +80,8 @@ def _rules(user_id):
         return {
             "user": user_id,
             "weekday": weekday_number,
-            "start_time": _prompt_time("Start time"),
-            "end_time": _prompt_time("End time"),
+            "start": _prompt_time("Start time"),
+            "end": _prompt_time("End time"),
         }
 
     return _prompt_list("Rules", collect)

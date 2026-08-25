@@ -32,11 +32,11 @@ def user():
             {"name": "Follow-up", "duration_minutes": 15},
         ],
         "rules": [
-            {"weekday": 0, "start_time": "09:00", "end_time": "17:00"},
-            {"weekday": 1, "start_time": "09:00", "end_time": "17:00"},
-            {"weekday": 2, "start_time": "09:00", "end_time": "17:00"},
-            {"weekday": 3, "start_time": "09:00", "end_time": "17:00"},
-            {"weekday": 4, "start_time": "09:00", "end_time": "17:00"},
+            {"weekday": 0, "start": "09:00", "end": "17:00"},
+            {"weekday": 1, "start": "09:00", "end": "17:00"},
+            {"weekday": 2, "start": "09:00", "end": "17:00"},
+            {"weekday": 3, "start": "09:00", "end": "17:00"},
+            {"weekday": 4, "start": "09:00", "end": "17:00"},
         ],
         "blocked_time": [],
     }
@@ -91,8 +91,8 @@ class TestIsBlocked:
     def test_blocked_exact_datetime_overlap(self, user):
         user["blocked_time"] = [
             {
-                "start_datetime": "2026-08-24T10:00:00-03:00",
-                "end_datetime": "2026-08-24T11:00:00-03:00",
+                "start": "2026-08-24T10:00:00-03:00",
+                "end": "2026-08-24T11:00:00-03:00",
             }
         ]
         start = datetime(2026, 8, 24, 10, 30, tzinfo=TZ)
@@ -102,8 +102,8 @@ class TestIsBlocked:
     def test_blocked_exact_datetime_before(self, user):
         user["blocked_time"] = [
             {
-                "start_datetime": "2026-08-24T10:00:00-03:00",
-                "end_datetime": "2026-08-24T11:00:00-03:00",
+                "start": "2026-08-24T10:00:00-03:00",
+                "end": "2026-08-24T11:00:00-03:00",
             }
         ]
         start = datetime(2026, 8, 24, 9, 0, tzinfo=TZ)
@@ -113,8 +113,8 @@ class TestIsBlocked:
     def test_blocked_exact_datetime_after(self, user):
         user["blocked_time"] = [
             {
-                "start_datetime": "2026-08-24T10:00:00-03:00",
-                "end_datetime": "2026-08-24T11:00:00-03:00",
+                "start": "2026-08-24T10:00:00-03:00",
+                "end": "2026-08-24T11:00:00-03:00",
             }
         ]
         start = datetime(2026, 8, 24, 11, 0, tzinfo=TZ)
@@ -125,8 +125,8 @@ class TestIsBlocked:
         """Slot ends exactly when block starts — not blocked."""
         user["blocked_time"] = [
             {
-                "start_datetime": "2026-08-24T10:00:00-03:00",
-                "end_datetime": "2026-08-24T11:00:00-03:00",
+                "start": "2026-08-24T10:00:00-03:00",
+                "end": "2026-08-24T11:00:00-03:00",
             }
         ]
         start = datetime(2026, 8, 24, 9, 30, tzinfo=TZ)
@@ -137,8 +137,8 @@ class TestIsBlocked:
         """Slot starts exactly when block ends — not blocked."""
         user["blocked_time"] = [
             {
-                "start_datetime": "2026-08-24T10:00:00-03:00",
-                "end_datetime": "2026-08-24T11:00:00-03:00",
+                "start": "2026-08-24T10:00:00-03:00",
+                "end": "2026-08-24T11:00:00-03:00",
             }
         ]
         start = datetime(2026, 8, 24, 11, 0, tzinfo=TZ)
@@ -262,7 +262,7 @@ class TestGetWorkingHours:
 
     def test_returns_none_for_weekday_without_rule(self, user):
         user["rules"] = [
-            {"weekday": 0, "start_time": "09:00", "end_time": "17:00"}
+            {"weekday": 0, "start": "09:00", "end": "17:00"}
         ]
         # Tuesday (weekday 2) has no rule
         day = date(2026, 8, 25)
@@ -275,8 +275,8 @@ class TestGetWorkingHours:
 
     def test_first_rule_wins_when_multiple_match(self, user):
         user["rules"] = [
-            {"weekday": 0, "start_time": "08:00", "end_time": "12:00"},
-            {"weekday": 0, "start_time": "13:00", "end_time": "17:00"},
+            {"weekday": 0, "start": "08:00", "end": "12:00"},
+            {"weekday": 0, "start": "13:00", "end": "17:00"},
         ]
         day = date(2026, 8, 24)
         result = get_working_hours(user, day)
@@ -330,8 +330,8 @@ class TestGetNextFreeSlots:
         """Block a period and verify slots skip it."""
         user["blocked_time"] = [
             {
-                "start_datetime": "2026-08-24T09:15:00-03:00",
-                "end_datetime": "2026-08-24T10:00:00-03:00",
+                "start": "2026-08-24T09:15:00-03:00",
+                "end": "2026-08-24T10:00:00-03:00",
             }
         ]
         slots = get_next_free_slots(
@@ -418,8 +418,8 @@ class TestBookAppointment:
     def test_book_appends_to_blocked_time(self, user):
         user["blocked_time"] = [
             {
-                "start_datetime": "2026-08-24T09:00:00-03:00",
-                "end_datetime": "2026-08-24T10:00:00-03:00",
+                "start": "2026-08-24T09:00:00-03:00",
+                "end": "2026-08-24T10:00:00-03:00",
                 "reason": "existing",
             }
         ]
@@ -530,6 +530,32 @@ class TestBookAppointment:
         }]
 
     def test_reloaded_user_sees_persisted_booking(self, user):
+        main_module.AppointmentsService(main_module.DATABASE_PATH)
+        db = sqlite_utils.Database(main_module.DATABASE_PATH)
+        db["users"].insert({
+            "id": user["id"],
+            "name": "User",
+            "email": "user@example.com",
+            "timezone": user["timezone"],
+        })
+        db["rules"].insert_all([
+            {
+                "id": index + 101,
+                "user": user["id"],
+                "weekday": rule["weekday"],
+                "start": rule["start"],
+                "end": rule["end"],
+            }
+            for index, rule in enumerate(user["rules"])
+        ])
+        db["appointment_types"].insert_all([
+            {
+                "id": index + 101,
+                "user": user["id"],
+                **appointment_type,
+            }
+            for index, appointment_type in enumerate(user["appointment_types"])
+        ])
         book_appointment(
             user, "Follow-up", "2026-08-24T10:00:00-03:00",
         )
@@ -561,8 +587,8 @@ class TestBookAppointment:
             "id": 101,
             "user": second_user_id,
             "weekday": 0,
-            "start_time": "09:00",
-            "end_time": "17:00",
+            "start": "09:00",
+            "end": "17:00",
         })
         db["appointment_types"].insert({
             "id": 101,

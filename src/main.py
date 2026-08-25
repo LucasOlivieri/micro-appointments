@@ -18,7 +18,7 @@ def load_user(user_id):
     service = AppointmentsService(DATABASE_PATH)
     user = service.db["users"].get(user_id)
     user["rules"] = list(service.db.query(
-        "SELECT id, user, weekday, start_time, end_time "
+        "SELECT id, user, weekday, start, end "
         "FROM rules WHERE user = :user_id ORDER BY id",
         {"user_id": user_id},
     ))
@@ -57,13 +57,9 @@ def is_blocked(user, start, end):
     for block in user.get("blocked_time", []):
 
         # Exact datetime interval
-        if (
-            "start" in block and "end" in block
-        ) or (
-            "start_datetime" in block and "end_datetime" in block
-        ):
-            block_start_value = block["start"] if "start" in block else block["start_datetime"]
-            block_end_value = block["end"] if "end" in block else block["end_datetime"]
+        if "start" in block and "end" in block:
+            block_start_value = block["start"]
+            block_end_value = block["end"]
             block_start = datetime.fromisoformat(
                 block_start_value
             )
@@ -113,12 +109,12 @@ def get_working_hours(user, day):
 
             start = datetime.combine(
                 day,
-                time.fromisoformat(rule["start_time"]),
+                time.fromisoformat(rule["start"]),
                 tzinfo=tz,
             )
             end = datetime.combine(
                 day,
-                time.fromisoformat(rule["end_time"]),
+                time.fromisoformat(rule["end"]),
                 tzinfo=tz,
             )
 
@@ -185,7 +181,7 @@ def get_next_free_slots(
 def book_appointment(
     user,
     appointment_type,
-    start_datetime,
+    start,
 ):
     """
     Book an appointment by adding a 'booked' blocked_time entry.
@@ -195,35 +191,35 @@ def book_appointment(
 
     tz = ZoneInfo(user["timezone"])
 
-    if isinstance(start_datetime, str):
-        start_datetime = datetime.fromisoformat(start_datetime)
+    if isinstance(start, str):
+        start = datetime.fromisoformat(start)
 
-    if start_datetime.tzinfo is None:
-        start_datetime = start_datetime.replace(tzinfo=tz)
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=tz)
 
-    end_datetime = start_datetime + duration
+    end = start + duration
 
     _refresh_database_blocked_times(user)
 
     # Must be inside working hours
-    working_hours = get_working_hours(user, start_datetime.date())
+    working_hours = get_working_hours(user, start.date())
 
     if not working_hours:
         raise ValueError("No working hours on this day")
 
     working_start, working_end = working_hours
 
-    if start_datetime < working_start or end_datetime > working_end:
+    if start < working_start or end > working_end:
         raise ValueError("Appointment is outside working hours")
 
     # Prevent double booking
-    if is_blocked(user, start_datetime, end_datetime):
+    if is_blocked(user, start, end):
         raise ValueError("Time slot is already blocked")
 
     booking = {
         "reason": "booked",
-        "start": start_datetime.isoformat(),
-        "end": end_datetime.isoformat(),
+        "start": start.isoformat(),
+        "end": end.isoformat(),
         "appointment_type": appt["name"],
     }
 

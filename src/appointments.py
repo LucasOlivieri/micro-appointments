@@ -28,8 +28,8 @@ class AppointmentsService:
 
     def list_blocked_times(self, user_id, bookings_only=False):
         query = (
-            "SELECT id, user, reason, start, end, start_datetime, "
-            "end_datetime, appointment_type FROM blocked_times "
+            "SELECT id, user, reason, start, end, appointment_type "
+            "FROM blocked_times "
             "WHERE user = :user_id"
         )
         if bookings_only:
@@ -41,28 +41,23 @@ class AppointmentsService:
             if row["appointment_type"]:
                 blocked_times.append({
                     "reason": row["reason"],
-                    "start": row["start"] or row["start_datetime"],
-                    "end": row["end"] or row["end_datetime"],
+                    "start": row["start"],
+                    "end": row["end"],
                     "appointment_type": row["appointment_type"],
                 })
             elif row["start"] and row["end"]:
                 blocked_times.append({
                     "reason": row["reason"],
-                    "start_date": row["start"][:10],
-                    "end_date": row["end"][:10],
+                    "start": row["start"][:10],
+                    "end": row["end"][:10],
                 })
         return blocked_times
 
     def create_blocked_time(self, item):
         item = dict(item)
-        if "start" in item and "end" in item:
-            item.pop("start_datetime", None)
-            item.pop("end_datetime", None)
         table = self.db["blocked_times"]
         table.insert(item)
         created = table.get(table.last_pk)
-        created.pop("start_datetime", None)
-        created.pop("end_datetime", None)
         _dispatch(CREATED, created)
         return created
 

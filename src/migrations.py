@@ -17,8 +17,8 @@ def create_tables(db):
         "id": int,
         "user": str,
         "weekday": int,
-        "start_time": str,
-        "end_time": str
+        "start": str,
+        "end": str
     }, pk="id", foreign_keys=[
         ("user", "users", "id")
     ], if_not_exists=True)
@@ -36,9 +36,6 @@ def create_tables(db):
         "reason": str,
         "start": str,
         "end": str,
-        "start_datetime": str,
-        "end_datetime": str,
-        "appointment_type": str,
     }, pk="id", foreign_keys=[
         ("user", "users", "id")
     ], if_not_exists=True)
@@ -50,9 +47,8 @@ def add_booking_columns(db):
         row["name"]
         for row in db.query("PRAGMA table_info(blocked_times)")
     }
-    for column in ("start_datetime", "end_datetime", "appointment_type"):
-        if column not in columns:
-            db.execute(f'ALTER TABLE blocked_times ADD COLUMN "{column}" TEXT')
+    if "appointment_type" not in columns:
+        db.execute(f'ALTER TABLE blocked_times ADD COLUMN "appointment_type" TEXT')
 
 @migrations()
 def setup_user(db):
@@ -64,6 +60,7 @@ def setup_user(db):
         "timezone": user["timezone"],
         "name": user["name"]
     }
+    print("Creating user: ", user_data)
     rules = user["rules"]
     blocked_times = user["blocked_times"]
     appointment_types = user["appointment_types"]

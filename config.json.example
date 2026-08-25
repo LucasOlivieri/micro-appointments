@@ -9,36 +9,36 @@
                 "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
                 "id": 1,
                 "weekday": 0,
-                "start_time": "09:00",
-                "end_time": "17:00"
+                "start": "09:00",
+                "end": "17:00"
             },
             {
                 "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
                 "id": 2,
                 "weekday": 1,
-                "start_time": "09:00",
-                "end_time": "17:00"
+                "start": "09:00",
+                "end": "17:00"
             },
             {
                 "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
                 "id": 3,
                 "weekday": 2,
-                "start_time": "09:00",
-                "end_time": "17:00"
+                "start": "09:00",
+                "end": "17:00"
             },
             {
                 "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
                 "id": 4,
                 "weekday": 3,
-                "start_time": "09:00",
-                "end_time": "17:00"
+                "start": "09:00",
+                "end": "17:00"
             },
             {
                 "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
                 "id": 5,
                 "weekday": 4,
-                "start_time": "09:00",
-                "end_time": "17:00"
+                "start": "09:00",
+                "end": "17:00"
             }
         ],
         "appointment_types": [
