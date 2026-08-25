@@ -79,6 +79,30 @@ def test_available_slots_respect_type_and_start_filter(tmp_path):
     assert slots[1]["start"] == "2026-08-24T10:15:00-03:00"
 
 
+def test_available_appointment_types_are_listed_for_user(tmp_path):
+    api = client(tmp_path)
+
+    response = api.get(
+        "/appointments/available-types", params={"user_id": USER_ID}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"name": "Follow-up", "duration_minutes": 15},
+        {"name": "Initial Consultation", "duration_minutes": 30},
+    ]
+
+
+def test_available_appointment_types_require_existing_user(tmp_path):
+    api = client(tmp_path)
+
+    response = api.get(
+        "/appointments/available-types", params={"user_id": "missing"}
+    )
+
+    assert response.status_code == 404
+
+
 def test_available_slots_skip_booked_time_and_validate_type(tmp_path):
     api = client(tmp_path)
     api.post("/appointments", json={
