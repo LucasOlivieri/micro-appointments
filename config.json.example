@@ -1,75 +1,36 @@
 {
-    "user": {
-        "name": "Dr. Lucas Olivieri",
-        "email": "lucasandresolivieri@gmail.com",
-        "timezone": "America/Argentina/Buenos_Aires",
-        "id": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
-        "rules": [
-            {
-                "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
-                "id": 1,
-                "weekday": 0,
-                "start": "09:00",
-                "end": "17:00"
-            },
-            {
-                "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
-                "id": 2,
-                "weekday": 1,
-                "start": "09:00",
-                "end": "17:00"
-            },
-            {
-                "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
-                "id": 3,
-                "weekday": 2,
-                "start": "09:00",
-                "end": "17:00"
-            },
-            {
-                "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
-                "id": 4,
-                "weekday": 3,
-                "start": "09:00",
-                "end": "17:00"
-            },
-            {
-                "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
-                "id": 5,
-                "weekday": 4,
-                "start": "09:00",
-                "end": "17:00"
-            }
-        ],
-        "appointment_types": [
-            {
-                "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
-                "id": 1,
-                "name": "Initial Consultation",
-                "duration_minutes": 30
-            },
-            {
-                "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
-                "id": 2,
-                "name": "Follow-up",
-                "duration_minutes": 15
-            }
-        ],
-        "blocked_times": [
-            {
-                "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
-                "id": 1,
-                "reason": "vacation",
-                "start": "2026-07-01T00:00:00-03:00",
-                "end": "2026-07-31T00:00:00-03:00"
-            },
-            {
-                "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
-                "id": 2,
-                "reason": "vacation",
-                "start": "2026-02-01T00:00:00-03:00",
-                "end": "2026-02-25T00:00:00-03:00"
-            }
-        ]
-    }
+    "users": [
+        {
+            "name": "Dr. Lucas Olivieri",
+            "email": "lucasandresolivieri@gmail.com",
+            "timezone": "America/Argentina/Buenos_Aires",
+            "id": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
+            "rules": [
+                {
+                    "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
+                    "id": 1,
+                    "weekday": 0,
+                    "start": "09:00",
+                    "end": "17:00"
+                }
+            ],
+            "appointment_types": [
+                {
+                    "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
+                    "id": 1,
+                    "name": "Initial Consultation",
+                    "duration_minutes": 30
+                }
+            ],
+            "blocked_times": [
+                {
+                    "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
+                    "id": 1,
+                    "reason": "vacation",
+                    "start": "2026-07-01T00:00:00-03:00",
+                    "end": "2026-07-31T00:00:00-03:00"
+                }
+            ]
+        }
+    ]
 }

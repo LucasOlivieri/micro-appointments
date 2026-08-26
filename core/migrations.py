@@ -52,23 +52,20 @@ def add_booking_columns(db):
 
 @migrations()
 def setup_user(db):
-    CONFIG = json.loads(open("config.json").read())
-    user = CONFIG.get("user")
-    user_data = {
-        "id": user["id"],
-        "email": user["email"],
-        "timezone": user["timezone"],
-        "name": user["name"]
-    }
-    print("Creating user: ", user_data)
-    rules = user["rules"]
-    blocked_times = user["blocked_times"]
-    appointment_types = user["appointment_types"]
-
-    db.table("users").upsert(user_data)
-    db.table("rules").upsert_all(rules)
-    db.table("blocked_times").upsert_all(blocked_times)
-    db.table("appointment_types").upsert_all(appointment_types)
+    config = json.loads(open("config.json").read())
+    users = config["users"]
+    for user in users:
+        user_data = {
+            "id": user["id"],
+            "email": user["email"],
+            "timezone": user["timezone"],
+            "name": user["name"],
+        }
+        print("Creating user: ", user_data)
+        db.table("users").upsert(user_data)
+        db.table("rules").upsert_all(user["rules"])
+        db.table("blocked_times").upsert_all(user["blocked_times"])
+        db.table("appointment_types").upsert_all(user["appointment_types"])
 
 @migrations()
 def add_customer_column(db):
