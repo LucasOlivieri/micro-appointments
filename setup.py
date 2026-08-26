@@ -10,8 +10,31 @@ from zoneinfo import ZoneInfo
 
 
 OUTPUT_PATH = Path(__file__).resolve().parent / "config.json"
-app = typer.Typer(help="Create the calendar configuration for one or more users.")
+app = typer.Typer(
+    help=(
+        "Create the calendar configuration used to find and book appointments "
+        "for one or more users."
+    )
+)
 DONE = "__done__"
+HOUR_CHOICES = [questionary.Choice(str(hour), value=hour) for hour in range(24)]
+MINUTE_CHOICES = [
+    questionary.Choice(f"{minute:02d}", value=minute)
+    for minute in range(0, 60, 5)
+]
+MONTH_CHOICES = [
+    questionary.Choice(date(2000, month, 1).strftime("%b"), value=month)
+    for month in range(1, 13)
+]
+DURATION_CHOICES = [
+    questionary.Choice(
+        f"{duration} minutes" if duration < 60 else f"{duration // 60} hours"
+        if duration % 60 == 0
+        else f"{duration // 60} hours {duration % 60} minutes",
+        value=duration,
+    )
+    for duration in range(5, 241, 5)
+]
 WEEKDAYS = {
     "monday": 0,
     "tuesday": 1,
@@ -43,13 +66,9 @@ def _prompt_int(label, minimum=0):
 
 
 def _prompt_time(label):
-    while True:
-        value = input(f"{label} (HH:MM): ").strip()
-        try:
-            datetime.strptime(value, "%H:%M")
-            return value
-        except ValueError:
-            print("Enter a time in HH:MM format.")
+    hour = questionary.select(f"{label} hour:", choices=HOUR_CHOICES).ask()
+    minute = questionary.select(f"{label} minute:", choices=MINUTE_CHOICES).ask()
+    return f"{hour:02d}:{minute:02d}"
 
 
 def _prompt_weekday(label="Weekday"):
@@ -61,9 +80,9 @@ def _prompt_weekday(label="Weekday"):
     return questionary.select(f"{label}:", choices=choices).ask()
 
 
-def _prompt_list(label, collect):
+def _prompt_list(label, instructions, collect):
     items = []
-    print(f"\n{label} (press Enter on the first prompt to finish)")
+    print(f"\n{label}\n{instructions}")
     while True:
         item = collect()
         if item is None:
@@ -84,7 +103,11 @@ def _rules(user_id):
             "end": _prompt_time("End time"),
         }
 
-    return _prompt_list("Rules", collect)
+    return _prompt_list(
+        "Weekly availability",
+        "Add the days and hours when appointments can be booked. Choose Done when finished.",
+        collect,
+    )
 
 
 def _appointment_types(user_id):
@@ -95,64 +118,44 @@ def _appointment_types(user_id):
         return {
             "user": user_id,
             "name": name,
-            "duration_minutes": _prompt_int("Duration in minutes", minimum=1),
+            "duration_minutes": questionary.select(
+                "How long should this appointment last?",
+                choices=DURATION_CHOICES,
+            ).ask(),
         }
 
-    return _prompt_list("Appointment types", collect)
+    return _prompt_list(
+        "Appointment types",
+        "Add each service people can book. Leave the name blank when finished.",
+        collect,
+    )
 
 
 def _prompt_date(label):
     while True:
         try:
+            year = _prompt_int(f"{label} year", minimum=1)
+            month = questionary.select(
+                f"{label} month:", choices=MONTH_CHOICES
+            ).ask()
+            day = _prompt_int(f"{label} day", minimum=1)
             return date(
-                _prompt_int(f"{label} year", minimum=1),
-                _prompt_int(f"{label} month", minimum=1),
-                _prompt_int(f"{label} day", minimum=1),
+                year,
+                month,
+                day,
             )
         except ValueError:
             print("Enter a valid calendar date.")
 
 
-def _prompt_datetime(label, timezone):
-    while True:
-        selected_date = _prompt_date(label)
-        hour = _prompt_int(f"{label} hour", minimum=0)
-        minute = _prompt_int(f"{label} minute", minimum=0)
-        try:
-            return datetime.combine(
-                selected_date,
-                time(hour, minute),
-                tzinfo=ZoneInfo(timezone),
-            )
-        except ValueError:
-            print("Enter an hour from 0 to 23 and a minute from 0 to 59.")
-
-
 def _prompt_blocked_range(user_id, timezone):
-    block_type = questionary.select(
-        "Block type:",
-        choices=[
-            questionary.Choice("Date range", value="date"),
-            questionary.Choice("Datetime interval", value="datetime"),
-        ],
-    ).ask()
-    if block_type is None:
+    start = _prompt_date("Start")
+    end = _prompt_date("End")
+    if end < start:
+        print("End must be on or after start.")
         return _prompt_blocked_range(user_id, timezone)
-
-    if block_type == "date":
-        start = _prompt_date("Start")
-        end = _prompt_date("End")
-        if end < start:
-            print("End must be on or after start.")
-            return _prompt_blocked_range(user_id, timezone)
-        start_value = datetime.combine(start, time.min, tzinfo=ZoneInfo(timezone))
-        end_value = datetime.combine(end, time.min, tzinfo=ZoneInfo(timezone))
-    else:
-        start_value = _prompt_datetime("Start", timezone)
-        end_value = _prompt_datetime("End", timezone)
-        if end_value <= start_value:
-            print("End must be after start.")
-            return _prompt_blocked_range(user_id, timezone)
+    start_value = datetime.combine(start, time.min, tzinfo=ZoneInfo(timezone))
+    end_value = datetime.combine(end, time.min, tzinfo=ZoneInfo(timezone))
 
     return start_value.isoformat(), end_value.isoformat()
 
@@ -170,10 +173,15 @@ def _blocked_times(user_id, timezone):
             "end": end,
         }
 
-    return _prompt_list("Blocked times", collect)
+    return _prompt_list(
+        "Blocked times",
+        "Add date ranges when appointments are not available. Leave the reason blank when finished.",
+        collect,
+    )
 
 
 def build_user(timezone):
+    print("\nSet up a user who can receive appointments.")
     user_id = str(uuid.uuid4())
     return {
         "name": _prompt_required("Name"),
@@ -186,6 +194,61 @@ def build_user(timezone):
     }
 
 
+def _user_label(user):
+    return f"{user['name']} ({user['email']})"
+
+
+def _manage_users(users, timezone):
+    current_user = users[0] if users else None
+    while True:
+        choices = []
+        if users:
+            choices.append(questionary.Choice("Change current user", value="select"))
+        choices.append(questionary.Choice("Create a new user", value="create"))
+        if users:
+            choices.append(questionary.Choice("Delete an existing user", value="delete"))
+        choices.append(questionary.Choice("Finish setup", value="finish"))
+        action = questionary.select(
+            f"Current user: {_user_label(current_user) if current_user else 'none'}\nWhat would you like to do?",
+            choices=choices,
+        ).ask()
+
+        if action in {None, "finish"}:
+            return users
+        if action == "select":
+            current_user = questionary.select(
+                "Choose the current user:",
+                choices=[
+                    questionary.Choice(_user_label(user), value=user)
+                    for user in users
+                ],
+            ).ask()
+        elif action == "create":
+            current_user = build_user(timezone)
+            users.append(current_user)
+        elif action == "delete":
+            user = questionary.select(
+                "Choose the user to delete:",
+                choices=[
+                    questionary.Choice(_user_label(user), value=user)
+                    for user in users
+                ],
+            ).ask()
+            if user is not None:
+                users.remove(user)
+                if user is current_user:
+                    current_user = users[0] if users else None
+
+
+def _renumber_items(users):
+    for collection_name in ("rules", "appointment_types", "blocked_times"):
+        item_id = 1
+        for user in users:
+            for item in user[collection_name]:
+                item["id"] = item_id
+                item_id += 1
+
+
 def build_config(user_count=1, timezone=None):
     timezone = timezone or get_localzone_name()
     try:
@@ -193,12 +256,7 @@ def build_config(user_count=1, timezone=None):
     except Exception as error:
         raise ValueError(f"Unknown timezone: {timezone}") from error
     users = [build_user(timezone) for _ in range(user_count)]
-    for collection_name in ("rules", "appointment_types", "blocked_times"):
-        item_id = 1
-        for user in users:
-            for item in user[collection_name]:
-                item["id"] = item_id
-                item_id += 1
+    _renumber_items(users)
     return {"users": users}
 
 
@@ -208,8 +266,19 @@ def main(
     users: int = typer.Option(1, "--users", "-n", min=1, help="Number of users to configure."),
     timezone: str = typer.Option(None, help="Timezone used for all users and blocked times."),
 ):
-    """Interactively create a configuration file."""
-    config = build_config(users, timezone)
+    """Interactively create or update a configuration file."""
+    selected_timezone = timezone or get_localzone_name()
+    try:
+        ZoneInfo(selected_timezone)
+    except Exception as error:
+        raise ValueError(f"Unknown timezone: {selected_timezone}") from error
+
+    if output.exists():
+        config = json.loads(output.read_text(encoding="utf-8"))
+        config["users"] = _manage_users(config.get("users", []), selected_timezone)
+        _renumber_items(config["users"])
+    else:
+        config = build_config(users, selected_timezone)
     output.write_text(json.dumps(config, indent=4) + "\n", encoding="utf-8")
     typer.echo(f"Configuration written to {output}")
 

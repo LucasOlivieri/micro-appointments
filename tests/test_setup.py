@@ -16,6 +16,30 @@ def test_help_lists_setup_options():
     assert "--timezone" in result.stdout
 
 
+def test_time_choices_cover_hours_and_minutes():
+    hour_values = [choice.value for choice in setup.HOUR_CHOICES]
+    minute_values = [choice.value for choice in setup.MINUTE_CHOICES]
+
+    assert hour_values == list(range(24))
+    assert minute_values == list(range(0, 60, 5))
+    assert setup.MINUTE_CHOICES[0].title == "00"
+    assert setup.MINUTE_CHOICES[-1].title == "55"
+
+
+def test_month_choices_cover_january_to_december():
+    assert [choice.value for choice in setup.MONTH_CHOICES] == list(range(1, 13))
+    assert [choice.title for choice in setup.MONTH_CHOICES] == [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ]
+
+
+def test_duration_choices_cover_five_minutes_to_four_hours():
+    values = [choice.value for choice in setup.DURATION_CHOICES]
+
+    assert values == list(range(5, 241, 5))
+
+
 def test_weekday_selector_returns_selected_weekday(monkeypatch):
     monkeypatch.setattr(
         setup.questionary,
@@ -36,40 +60,64 @@ def test_done_finishes_rule_collection(monkeypatch):
     assert setup._rules("user") == []
 
 
-def test_blocked_datetime_uses_user_timezone(monkeypatch):
+def test_blocked_date_range_uses_user_timezone(monkeypatch):
     answers = iter([
-        "2026", "8", "25", "9", "30",
-        "2026", "8", "25", "10", "45",
+        "2026", "25", "2026", "25",
     ])
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
+    selections = iter([8, 8])
     monkeypatch.setattr(
         setup.questionary,
-        "select",
-        lambda *args, **kwargs: type("Prompt", (), {"ask": lambda self: "datetime"})(),
+        "select", lambda *args, **kwargs: type(
+            "Prompt", (), {"ask": lambda self: next(selections)}
+        )(),
     )
 
     start, end = setup._prompt_blocked_range("user", "America/Argentina/Buenos_Aires")
 
-    assert start == "2026-08-25T09:30:00-03:00"
-    assert end == "2026-08-25T10:45:00-03:00"
+    assert start == "2026-08-25T00:00:00-03:00"
+    assert end == "2026-08-25T00:00:00-03:00"
 
 
 def test_blocked_date_range_outputs_full_timezone_datetimes(monkeypatch):
     answers = iter([
-        "2026", "8", "25",
-        "2026", "8", "27",
+        "2026", "25", "2026", "27",
     ])
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
+    selections = iter([8, 8])
     monkeypatch.setattr(
         setup.questionary,
-        "select",
-        lambda *args, **kwargs: type("Prompt", (), {"ask": lambda self: "date"})(),
+        "select", lambda *args, **kwargs: type(
+            "Prompt", (), {"ask": lambda self: next(selections)}
+        )(),
     )
 
     start, end = setup._prompt_blocked_range("user", "UTC")
 
     assert start == "2026-08-25T00:00:00+00:00"
     assert end == "2026-08-27T00:00:00+00:00"
+
+
+def test_manage_users_can_create_and_delete_user(monkeypatch):
+    new_user = {
+        "id": "new-user",
+        "name": "New User",
+        "email": "new@example.com",
+        "timezone": "UTC",
+        "rules": [],
+        "appointment_types": [],
+        "blocked_times": [],
+    }
+    selections = iter(["create", "delete", new_user, "finish"])
+    monkeypatch.setattr(
+        setup.questionary,
+        "select", lambda *args, **kwargs: type(
+            "Prompt", (), {"ask": lambda self: next(selections)}
+        )(),
+    )
+    monkeypatch.setattr(setup, "build_user", lambda timezone: new_user)
+
+    assert setup._manage_users([], "UTC") == []
 
 
 def test_build_config_creates_requested_number_of_users(monkeypatch):
