@@ -5,5 +5,5 @@
 *.pyc
 *__pycache__/
 .pytest_cache
-tests.ipynb
+# tests.ipynb
 config.json

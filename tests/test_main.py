@@ -287,6 +287,31 @@ class TestGetWorkingHours:
         expected_end = datetime(2026, 8, 24, 12, 0, tzinfo=TZ)
         assert result == (expected_start, expected_end)
 
+    def test_rrule_matches_configured_weekday(self, user):
+        user["rules"] = [{
+            "rrule": "FREQ=WEEKLY;BYDAY=MO,WE",
+            "start": "10:00",
+            "end": "12:00",
+        }]
+
+        result = get_working_hours(user, date(2026, 8, 26))
+
+        assert result == (
+            datetime(2026, 8, 26, 10, 0, tzinfo=TZ),
+            datetime(2026, 8, 26, 12, 0, tzinfo=TZ),
+        )
+
+    def test_rrule_respects_until_and_excluded_dates(self, user):
+        user["rules"] = [{
+            "rrule": "FREQ=WEEKLY;BYDAY=MO;UNTIL=20260907T000000",
+            "exclude_dates": ["2026-08-31"],
+            "start": "10:00",
+            "end": "12:00",
+        }]
+
+        assert get_working_hours(user, date(2026, 8, 31)) is None
+        assert get_working_hours(user, date(2026, 9, 14)) is None
+
 
 # ===================================================================
 # get_next_free_slots

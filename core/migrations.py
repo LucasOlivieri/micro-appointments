@@ -50,6 +50,21 @@ def add_booking_columns(db):
     if "appointment_type" not in columns:
         db.execute(f'ALTER TABLE blocked_times ADD COLUMN "appointment_type" TEXT')
 
+
+@migrations()
+def add_rule_recurrence_columns(db):
+    columns = {
+        row["name"]
+        for row in db.query("PRAGMA table_info(rules)")
+    }
+    if "rrule" not in columns:
+        db.execute('ALTER TABLE rules ADD COLUMN "rrule" TEXT')
+    if "dtstart" not in columns:
+        db.execute('ALTER TABLE rules ADD COLUMN "dtstart" TEXT')
+    if "exclude_dates" not in columns:
+        db.execute('ALTER TABLE rules ADD COLUMN "exclude_dates" TEXT')
+
+
 @migrations()
 def setup_user(db):
     config = json.loads(open("config.json").read())

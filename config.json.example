@@ -9,7 +9,7 @@
                 {
                     "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
                     "id": 1,
-                    "weekday": 0,
+                    "rrule": "FREQ=WEEKLY;BYDAY=MO",
                     "start": "09:00",
                     "end": "17:00"
                 }

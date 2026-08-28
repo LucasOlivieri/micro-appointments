@@ -3,6 +3,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from .appointments import AppointmentsService
+from .recurrence import rule_applies_on
 
 
 DATABASE_PATH = Path(__file__).resolve().parent.parent / "db.sqlite3"
@@ -24,7 +25,7 @@ def load_user(user_id, database_path=None):
     service = AppointmentsService(database_path)
     user = service.db["users"].get(user_id)
     user["rules"] = list(service.db.query(
-        "SELECT id, user, weekday, start, end "
+        "SELECT id, user, weekday, start, end, rrule, dtstart, exclude_dates "
         "FROM rules WHERE user = :user_id ORDER BY id",
         {"user_id": user_id},
     ))
@@ -119,12 +120,9 @@ def get_working_hours(user, day):
     """
     Return (start, end) for a given date, or None if unavailable.
     """
-    weekday = day.weekday()
-
     for rule in user["rules"]:
-        if rule["weekday"] == weekday:
-            tz = ZoneInfo(user["timezone"])
-
+        tz = ZoneInfo(user["timezone"])
+        if rule_applies_on(rule, day, tz):
             start = datetime.combine(
                 day,
                 time.fromisoformat(rule["start"]),
@@ -159,9 +157,12 @@ def get_next_free_slots(
         from_datetime = from_datetime.replace(tzinfo=tz)
 
     slots = []
+    from_datetime = from_datetime.astimezone(tz)
     day = from_datetime.date()
 
-    while len(slots) < nr_slots:
+    for _ in range(366):
+        if len(slots) >= nr_slots:
+            break
         working_hours = get_working_hours(user, day)
 
         if working_hours:
@@ -220,6 +221,8 @@ def book_appointment(
 
     if start.tzinfo is None:
         start = start.replace(tzinfo=tz)
+    else:
+        start = start.astimezone(tz)
 
     end = start + duration
 

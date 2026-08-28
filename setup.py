@@ -44,6 +44,10 @@ WEEKDAYS = {
     "saturday": 5,
     "sunday": 6,
 }
+RRULE_WEEKDAYS = {
+    weekday: code
+    for weekday, code in zip(WEEKDAYS.values(), ("MO", "TU", "WE", "TH", "FR", "SA", "SU"))
+}
 
 
 def _prompt_required(label):
@@ -98,7 +102,7 @@ def _rules(user_id):
             return None
         return {
             "user": user_id,
-            "weekday": weekday_number,
+            "rrule": f"FREQ=WEEKLY;BYDAY={RRULE_WEEKDAYS[weekday_number]}",
             "start": _prompt_time("Start time"),
             "end": _prompt_time("End time"),
         }
