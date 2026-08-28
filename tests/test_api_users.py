@@ -45,3 +45,23 @@ def test_users_lists_calendar_users(api, tmp_path):
     assert [user["name"] for user in users] == sorted(
         user["name"] for user in users
     )
+
+
+def test_agent_websocket_runs_like_notebook_client(api, monkeypatch):
+    async def fake_run_agent(prompt, conversation_id):
+        assert "User ID: api-user" in prompt
+        assert "Show me my appointments" in prompt
+        assert conversation_id == "ws-session"
+        return "Here are your appointments."
+
+    monkeypatch.setattr("api.routes.agent.run_agent", fake_run_agent)
+
+    with api.websocket_connect("/ws/agent") as websocket:
+        websocket.send_json({
+            "user_id": API_USER_ID,
+            "message": "Show me my appointments",
+            "conversation_id": "ws-session",
+        })
+        data = websocket.receive_json()
+
+    assert data == {"response": "Here are your appointments."}
