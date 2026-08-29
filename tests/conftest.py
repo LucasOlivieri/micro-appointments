@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 from api.main import create_app
 from core.appointments import AppointmentsService
 
-
 API_USER_ID = "api-user"
 API_TIMEZONE = "America/Argentina/Buenos_Aires"
 
@@ -28,29 +27,37 @@ def user():
 
 def seed_api_database(path):
     service = AppointmentsService(path)
-    service.db["users"].insert({
-        "id": API_USER_ID,
-        "name": "API User",
-        "email": "api@example.com",
-        "timezone": API_TIMEZONE,
-    })
+    service.db["users"].insert(
+        {
+            "id": API_USER_ID,
+            "name": "API User",
+            "email": "api@example.com",
+            "timezone": API_TIMEZONE,
+        }
+    )
     for weekday in range(5):
-        service.db["rules"].insert({
+        service.db["rules"].insert(
+            {
+                "user": API_USER_ID,
+                "weekday": weekday,
+                "start": "09:00",
+                "end": "17:00",
+            }
+        )
+    service.db["appointment_types"].insert(
+        {
             "user": API_USER_ID,
-            "weekday": weekday,
-            "start": "09:00",
-            "end": "17:00",
-        })
-    service.db["appointment_types"].insert({
-        "user": API_USER_ID,
-        "name": "Follow-up",
-        "duration_minutes": 15,
-    })
-    service.db["appointment_types"].insert({
-        "user": API_USER_ID,
-        "name": "Initial Consultation",
-        "duration_minutes": 30,
-    })
+            "name": "Follow-up",
+            "duration_minutes": 15,
+        }
+    )
+    service.db["appointment_types"].insert(
+        {
+            "user": API_USER_ID,
+            "name": "Initial Consultation",
+            "duration_minutes": 30,
+        }
+    )
 
 
 @pytest.fixture

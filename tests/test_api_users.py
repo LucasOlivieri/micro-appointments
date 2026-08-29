@@ -1,14 +1,12 @@
+from conftest import API_TIMEZONE, API_USER_ID
 from fastapi.testclient import TestClient
 
 from api.main import create_app
-from conftest import API_TIMEZONE, API_USER_ID
 from core.appointments import AppointmentsService
 
 
 def test_available_appointment_types_are_listed_for_user(api):
-    response = api.get(
-        "/appointments/available-types", params={"user_id": API_USER_ID}
-    )
+    response = api.get("/appointments/available-types", params={"user_id": API_USER_ID})
 
     assert response.status_code == 200
     assert response.json() == [
@@ -18,21 +16,21 @@ def test_available_appointment_types_are_listed_for_user(api):
 
 
 def test_available_appointment_types_require_existing_user(api):
-    response = api.get(
-        "/appointments/available-types", params={"user_id": "missing"}
-    )
+    response = api.get("/appointments/available-types", params={"user_id": "missing"})
 
     assert response.status_code == 404
 
 
 def test_users_lists_calendar_users(api, tmp_path):
     service = AppointmentsService(tmp_path / "api.sqlite3")
-    service.db["users"].insert({
-        "id": "another-user",
-        "name": "Another User",
-        "email": "another@example.com",
-        "timezone": "UTC",
-    })
+    service.db["users"].insert(
+        {
+            "id": "another-user",
+            "name": "Another User",
+            "email": "another@example.com",
+            "timezone": "UTC",
+        }
+    )
 
     response = api.get("/users")
 
@@ -54,22 +52,24 @@ def test_users_lists_calendar_users(api, tmp_path):
             {"name": "Initial Consultation", "duration_minutes": 30},
         ],
     }
-    assert [user["name"] for user in users] == sorted(
-        user["name"] for user in users
-    )
+    assert [user["name"] for user in users] == sorted(user["name"] for user in users)
 
 
 def test_agent_websocket_infers_single_user_when_user_id_missing(tmp_path, monkeypatch):
-    monkeypatch.setattr("core.migrations.load_config", lambda *args, **kwargs: {"users": []})
+    monkeypatch.setattr(
+        "core.migrations.load_config", lambda *args, **kwargs: {"users": []}
+    )
 
     path = tmp_path / "single-user.sqlite3"
     service = AppointmentsService(path)
-    service.db["users"].insert({
-        "id": API_USER_ID,
-        "name": "API User",
-        "email": "api@example.com",
-        "timezone": API_TIMEZONE,
-    })
+    service.db["users"].insert(
+        {
+            "id": API_USER_ID,
+            "name": "API User",
+            "email": "api@example.com",
+            "timezone": API_TIMEZONE,
+        }
+    )
 
     async def fake_run_agent(prompt, conversation_id):
         assert "User ID: api-user" in prompt
@@ -80,10 +80,12 @@ def test_agent_websocket_infers_single_user_when_user_id_missing(tmp_path, monke
     monkeypatch.setattr("api.routes.agent.run_agent", fake_run_agent)
 
     with TestClient(create_app(path)).websocket_connect("/ws/agent") as websocket:
-        websocket.send_json({
-            "message": "Show me my appointments",
-            "conversation_id": "ws-session",
-        })
+        websocket.send_json(
+            {
+                "message": "Show me my appointments",
+                "conversation_id": "ws-session",
+            }
+        )
         data = websocket.receive_json()
 
     assert data == {"response": "Here are your appointments."}
@@ -99,11 +101,13 @@ def test_agent_websocket_runs_like_notebook_client(api, monkeypatch):
     monkeypatch.setattr("api.routes.agent.run_agent", fake_run_agent)
 
     with api.websocket_connect("/ws/agent") as websocket:
-        websocket.send_json({
-            "user_id": API_USER_ID,
-            "message": "Show me my appointments",
-            "conversation_id": "ws-session",
-        })
+        websocket.send_json(
+            {
+                "user_id": API_USER_ID,
+                "message": "Show me my appointments",
+                "conversation_id": "ws-session",
+            }
+        )
         data = websocket.receive_json()
 
     assert data == {"response": "Here are your appointments."}

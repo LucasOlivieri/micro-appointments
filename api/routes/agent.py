@@ -13,9 +13,11 @@ def _resolve_user_id(database_path: Path, user_id: str | None) -> str:
     if user_id:
         return user_id
 
-    rows = list(_service(database_path).db.query(
-        "SELECT id FROM users ORDER BY LOWER(name), id"
-    ))
+    rows = list(
+        _service(database_path).db.query(
+            "SELECT id FROM users ORDER BY LOWER(name), id"
+        )
+    )
     if len(rows) == 1:
         return str(rows[0]["id"])
     return ""

@@ -2,14 +2,14 @@ from collections import defaultdict
 
 from .db import get_db
 
-
 CREATED = "created"
 UPDATED = "updated"
-_ACTION_HANDLERS = defaultdict(list)
+_ACTION_HANDLERS: defaultdict = defaultdict(list)
 
 
 def onaction(action):
     """Register a callback for an appointments service action."""
+
     def decorator(handler):
         _ACTION_HANDLERS[action].append(handler)
         return handler
@@ -39,18 +39,22 @@ class AppointmentsService:
         blocked_times = []
         for row in rows:
             if row["appointment_type"]:
-                blocked_times.append({
-                    "reason": row["reason"],
-                    "start": row["start"],
-                    "end": row["end"],
-                    "appointment_type": row["appointment_type"],
-                })
+                blocked_times.append(
+                    {
+                        "reason": row["reason"],
+                        "start": row["start"],
+                        "end": row["end"],
+                        "appointment_type": row["appointment_type"],
+                    }
+                )
             elif row["start"] and row["end"]:
-                blocked_times.append({
-                    "reason": row["reason"],
-                    "start_date": row["start"][:10],
-                    "end_date": row["end"][:10],
-                })
+                blocked_times.append(
+                    {
+                        "reason": row["reason"],
+                        "start_date": row["start"][:10],
+                        "end_date": row["end"][:10],
+                    }
+                )
         return blocked_times
 
     def list_appointments(self, user_id, appointment_type=None):
@@ -64,7 +68,9 @@ class AppointmentsService:
         )
         params = {"user_id": user_id}
         if appointment_type is not None:
-            query += " AND lower(blocked_times.appointment_type) = lower(:appointment_type)"
+            query += (
+                " AND lower(blocked_times.appointment_type) = lower(:appointment_type)"
+            )
             params["appointment_type"] = appointment_type
         query += " ORDER BY blocked_times.start, blocked_times.id"
         return list(self.db.query(query, params))

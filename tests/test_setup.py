@@ -1,12 +1,8 @@
 import json
-from pathlib import Path
 
-import sqlite_utils
 from typer.testing import CliRunner
 
 import setup
-from core.db import sync_config_to_db
-
 
 runner = CliRunner()
 
@@ -33,8 +29,18 @@ def test_time_choices_cover_hours_and_minutes():
 def test_month_choices_cover_january_to_december():
     assert [choice.value for choice in setup.MONTH_CHOICES] == list(range(1, 13))
     assert [choice.title for choice in setup.MONTH_CHOICES] == [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
     ]
 
 
@@ -65,14 +71,20 @@ def test_done_finishes_rule_collection(monkeypatch):
 
 
 def test_blocked_date_range_uses_user_timezone(monkeypatch):
-    answers = iter([
-        "2026", "25", "2026", "25",
-    ])
+    answers = iter(
+        [
+            "2026",
+            "25",
+            "2026",
+            "25",
+        ]
+    )
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
     selections = iter([8, 8])
     monkeypatch.setattr(
         setup.questionary,
-        "select", lambda *args, **kwargs: type(
+        "select",
+        lambda *args, **kwargs: type(
             "Prompt", (), {"ask": lambda self: next(selections)}
         )(),
     )
@@ -84,14 +96,20 @@ def test_blocked_date_range_uses_user_timezone(monkeypatch):
 
 
 def test_blocked_date_range_outputs_full_timezone_datetimes(monkeypatch):
-    answers = iter([
-        "2026", "25", "2026", "27",
-    ])
+    answers = iter(
+        [
+            "2026",
+            "25",
+            "2026",
+            "27",
+        ]
+    )
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
     selections = iter([8, 8])
     monkeypatch.setattr(
         setup.questionary,
-        "select", lambda *args, **kwargs: type(
+        "select",
+        lambda *args, **kwargs: type(
             "Prompt", (), {"ask": lambda self: next(selections)}
         )(),
     )
@@ -115,7 +133,8 @@ def test_manage_users_can_create_and_delete_user(monkeypatch):
     selections = iter(["create", "delete", new_user, "finish"])
     monkeypatch.setattr(
         setup.questionary,
-        "select", lambda *args, **kwargs: type(
+        "select",
+        lambda *args, **kwargs: type(
             "Prompt", (), {"ask": lambda self: next(selections)}
         )(),
     )
@@ -142,16 +161,18 @@ def test_build_config_creates_requested_number_of_users(monkeypatch):
     assert config["users"][0]["timezone"] == "UTC"
     for collection_name in ("rules", "appointment_types", "blocked_times"):
         assert [
-            item["id"]
-            for user in config["users"]
-            for item in user[collection_name]
+            item["id"] for user in config["users"] for item in user[collection_name]
         ] == [1, 2]
 
 
 def test_generated_config_is_json_serializable(tmp_path, monkeypatch):
-    monkeypatch.setattr(setup, "build_config", lambda users, timezone: {
-        "users": [{"id": "user", "timezone": timezone}],
-    })
+    monkeypatch.setattr(
+        setup,
+        "build_config",
+        lambda users, timezone: {
+            "users": [{"id": "user", "timezone": timezone}],
+        },
+    )
     output = tmp_path / "config.json"
 
     result = runner.invoke(setup.app, ["--output", str(output), "--timezone", "UTC"])

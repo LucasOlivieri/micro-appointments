@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List
 
 from pydantic import BaseModel, Field
 
@@ -45,8 +44,9 @@ class User(BaseModel):
     name: str
     timezone: str
 
+
 class UserOut(BaseModel):
     id: str
     name: str
     timezone: str
-    available_appointment_types: List[AvailableAppointmentType]
+    available_appointment_types: list[AvailableAppointmentType]

@@ -2,12 +2,12 @@ import json
 import uuid
 from datetime import date, datetime, time
 from pathlib import Path
-
-import typer
-import questionary
-from tzlocal import get_localzone_name
+from typing import Annotated
 from zoneinfo import ZoneInfo
 
+import questionary
+import typer
+from tzlocal import get_localzone_name
 
 OUTPUT_PATH = Path(__file__).resolve().parent / "config.json"
 app = typer.Typer(
@@ -19,8 +19,7 @@ app = typer.Typer(
 DONE = "__done__"
 HOUR_CHOICES = [questionary.Choice(str(hour), value=hour) for hour in range(24)]
 MINUTE_CHOICES = [
-    questionary.Choice(f"{minute:02d}", value=minute)
-    for minute in range(0, 60, 5)
+    questionary.Choice(f"{minute:02d}", value=minute) for minute in range(0, 60, 5)
 ]
 MONTH_CHOICES = [
     questionary.Choice(date(2000, month, 1).strftime("%b"), value=month)
@@ -28,9 +27,15 @@ MONTH_CHOICES = [
 ]
 DURATION_CHOICES = [
     questionary.Choice(
-        f"{duration} minutes" if duration < 60 else f"{duration // 60} hours"
-        if duration % 60 == 0
-        else f"{duration // 60} hours {duration % 60} minutes",
+        (
+            f"{duration} minutes"
+            if duration < 60
+            else (
+                f"{duration // 60} hours"
+                if duration % 60 == 0
+                else f"{duration // 60} hours {duration % 60} minutes"
+            )
+        ),
         value=duration,
     )
     for duration in range(5, 241, 5)
@@ -46,7 +51,9 @@ WEEKDAYS = {
 }
 RRULE_WEEKDAYS = {
     weekday: code
-    for weekday, code in zip(WEEKDAYS.values(), ("MO", "TU", "WE", "TH", "FR", "SA", "SU"))
+    for weekday, code in zip(
+        WEEKDAYS.values(), ("MO", "TU", "WE", "TH", "FR", "SA", "SU"), strict=False
+    )
 }
 
 
@@ -109,7 +116,8 @@ def _rules(user_id):
 
     return _prompt_list(
         "Weekly availability",
-        "Add the days and hours when appointments can be booked. Choose Done when finished.",
+        "Add the days and hours when appointments can be booked. "
+        "Choose Done when finished.",
         collect,
     )
 
@@ -139,9 +147,7 @@ def _prompt_date(label):
     while True:
         try:
             year = _prompt_int(f"{label} year", minimum=1)
-            month = questionary.select(
-                f"{label} month:", choices=MONTH_CHOICES
-            ).ask()
+            month = questionary.select(f"{label} month:", choices=MONTH_CHOICES).ask()
             day = _prompt_int(f"{label} day", minimum=1)
             return date(
                 year,
@@ -179,7 +185,8 @@ def _blocked_times(user_id, timezone):
 
     return _prompt_list(
         "Blocked times",
-        "Add date ranges when appointments are not available. Leave the reason blank when finished.",
+        "Add date ranges when appointments are not available. "
+        "Leave the reason blank when finished.",
         collect,
     )
 
@@ -210,10 +217,13 @@ def _manage_users(users, timezone):
             choices.append(questionary.Choice("Change current user", value="select"))
         choices.append(questionary.Choice("Create a new user", value="create"))
         if users:
-            choices.append(questionary.Choice("Delete an existing user", value="delete"))
+            choices.append(
+                questionary.Choice("Delete an existing user", value="delete")
+            )
         choices.append(questionary.Choice("Finish setup", value="finish"))
         action = questionary.select(
-            f"Current user: {_user_label(current_user) if current_user else 'none'}\nWhat would you like to do?",
+            f"Current user: {_user_label(current_user) if current_user else 'none'}\n"
+            "What would you like to do?",
             choices=choices,
         ).ask()
 
@@ -223,8 +233,7 @@ def _manage_users(users, timezone):
             current_user = questionary.select(
                 "Choose the current user:",
                 choices=[
-                    questionary.Choice(_user_label(user), value=user)
-                    for user in users
+                    questionary.Choice(_user_label(user), value=user) for user in users
                 ],
             ).ask()
         elif action == "create":
@@ -234,8 +243,7 @@ def _manage_users(users, timezone):
             user = questionary.select(
                 "Choose the user to delete:",
                 choices=[
-                    questionary.Choice(_user_label(user), value=user)
-                    for user in users
+                    questionary.Choice(_user_label(user), value=user) for user in users
                 ],
             ).ask()
             if user is not None:
@@ -266,9 +274,30 @@ def build_config(user_count=1, timezone=None):
 
 @app.command()
 def main(
-    output: Path = typer.Option(OUTPUT_PATH, "--output", "-o", help="Configuration file to write."),
-    users: int = typer.Option(1, "--users", "-n", min=1, help="Number of users to configure."),
-    timezone: str = typer.Option(None, help="Timezone used for all users and blocked times."),
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Configuration file to write.",
+        ),
+    ] = OUTPUT_PATH,
+    users: Annotated[
+        int,
+        typer.Option(
+            "--users",
+            "-n",
+            min=1,
+            help="Number of users to configure.",
+        ),
+    ] = 1,
+    timezone: Annotated[
+        str | None,
+        typer.Option(
+            "--timezone",
+            help="Timezone used for all users and blocked times.",
+        ),
+    ] = None,
 ):
     """Interactively create or update a configuration file."""
     selected_timezone = timezone or get_localzone_name()

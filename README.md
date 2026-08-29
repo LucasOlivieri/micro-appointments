@@ -121,6 +121,33 @@ Then open:
 uv run pytest
 ```
 
+## Run CI checks locally (before push)
+
+Use the same checks that run in CI so you catch issues before pushing:
+
+```bash
+# 1) Sync project dependencies
+uv sync --group test
+
+# 2) Install CI tooling in your local env (one-time)
+uv pip install ruff black mypy bandit
+
+# 3) Run quality checks
+uv run ruff check .
+uv run black --check .
+uv run mypy api core bot
+uv run bandit -q -r api core bot
+
+# 4) Run tests
+uv run pytest -q
+```
+
+Optional (same container build used by CI on `main` pushes):
+
+```bash
+docker build -t micro-appointments:local .
+```
+
 ## Notes
 
 - Times are stored as ISO 8601 strings with timezone information.

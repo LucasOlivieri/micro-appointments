@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -46,18 +47,31 @@ def create_router(database_path: Path) -> APIRouter:
         ),
     )
     def available_slots(
-        user_id: str = Query(description="The user whose calendar to search"),
-        appointment_type: str = Query(
-            min_length=1, description="Appointment type name"
-        ),
-        nr_slots: int = Query(
-            default=5, ge=1, le=50,
-            description="Number of slots to return, from 1 to 50",
-        ),
-        from_datetime: datetime | None = Query(
-            default=None,
-            description="Only return slots starting at or after this ISO 8601 datetime",
-        ),
+        user_id: Annotated[
+            str,
+            Query(description="The user whose calendar to search"),
+        ],
+        appointment_type: Annotated[
+            str,
+            Query(
+                min_length=1,
+                description="Appointment type name",
+            ),
+        ],
+        nr_slots: Annotated[
+            int,
+            Query(
+                ge=1,
+                le=50,
+                description="Number of slots to return, from 1 to 50",
+            ),
+        ] = 5,
+        from_datetime: Annotated[
+            datetime | None,
+            Query(
+                description="Only return slots starting at or after this datetime",
+            ),
+        ] = None,
     ):
         user = _load_user_or_404(user_id, database_path)
         try:
@@ -113,7 +127,7 @@ def create_router(database_path: Path) -> APIRouter:
         "/appointments/{appointment_id}",
         response_model=Appointment,
         summary="Reschedule an appointment",
-        description="Change an appointment's start or type after full conflict validation.",
+        description="Change an appointment's start or type.",
     )
     def update_appointment(appointment_id: int, payload: AppointmentUpdate):
         user = _load_user_or_404(payload.user_id, database_path)
@@ -122,10 +136,13 @@ def create_router(database_path: Path) -> APIRouter:
         if existing is None:
             _not_found(f"Appointment not found: {appointment_id}")
         if payload.start is None and payload.appointment_type is None:
-            raise HTTPException(status_code=422, detail="Provide start or appointment_type")
+            raise HTTPException(
+                status_code=422, detail="Provide start or appointment_type"
+            )
 
         user["blocked_time"] = [
-            block for block in user.get("blocked_time", [])
+            block
+            for block in user.get("blocked_time", [])
             if block.get("id") != appointment_id
             and block.get("start") != existing["start"]
         ]
@@ -152,7 +169,8 @@ def create_router(database_path: Path) -> APIRouter:
         "/appointments/{appointment_id}",
         response_model=Appointment,
         summary="Cancel an appointment",
-        description="Permanently remove an appointment belonging to the specified user.",
+        description="Permanently remove an appointment belonging "
+        "to the specified user.",
     )
     def delete_appointment(
         appointment_id: int,

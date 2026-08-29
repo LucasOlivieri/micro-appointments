@@ -7,12 +7,14 @@ from core.appointments import AppointmentsService, onaction
 @pytest.fixture
 def service(tmp_path):
     service = AppointmentsService(tmp_path / "testdb.sqlite3")
-    service.db["users"].insert({
-        "id": "user-1",
-        "name": "User",
-        "email": "user@example.com",
-        "timezone": "America/Argentina/Buenos_Aires",
-    })
+    service.db["users"].insert(
+        {
+            "id": "user-1",
+            "name": "User",
+            "email": "user@example.com",
+            "timezone": "America/Argentina/Buenos_Aires",
+        }
+    )
     return service
 
 
@@ -30,13 +32,15 @@ def test_create_returns_item_and_dispatches_created(service):
     def sync_to_calendar(item):
         received.append(item)
 
-    created = service.create_blocked_time({
-        "user": "user-1",
-        "reason": "booked",
-        "start": "2026-08-24T10:00:00-03:00",
-        "end": "2026-08-24T10:15:00-03:00",
-        "appointment_type": "Follow-up",
-    })
+    created = service.create_blocked_time(
+        {
+            "user": "user-1",
+            "reason": "booked",
+            "start": "2026-08-24T10:00:00-03:00",
+            "end": "2026-08-24T10:15:00-03:00",
+            "appointment_type": "Follow-up",
+        }
+    )
 
     assert isinstance(created["id"], int)
     assert created["start"] == "2026-08-24T10:00:00-03:00"
@@ -47,22 +51,27 @@ def test_create_returns_item_and_dispatches_created(service):
 
 
 def test_update_returns_item_and_dispatches_updated(service):
-    created = service.create_blocked_time({
-        "user": "user-1",
-        "reason": "booked",
-        "start": "2026-08-24T10:00:00-03:00",
-        "end": "2026-08-24T10:15:00-03:00",
-        "appointment_type": "Follow-up",
-    })
+    created = service.create_blocked_time(
+        {
+            "user": "user-1",
+            "reason": "booked",
+            "start": "2026-08-24T10:00:00-03:00",
+            "end": "2026-08-24T10:15:00-03:00",
+            "appointment_type": "Follow-up",
+        }
+    )
     received = []
 
     @onaction("updated")
     def sync_update(item):
         received.append(item)
 
-    updated = service.update_blocked_time(created["id"], {
-        "reason": "rescheduled",
-    })
+    updated = service.update_blocked_time(
+        created["id"],
+        {
+            "reason": "rescheduled",
+        },
+    )
 
     assert updated["reason"] == "rescheduled"
     assert received == [updated]

@@ -1,6 +1,5 @@
-from test_main import TestBookAppointment
-
 import pytest
+from test_main import TestBookAppointment
 
 import core.main as main_module
 

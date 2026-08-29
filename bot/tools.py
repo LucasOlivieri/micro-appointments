@@ -18,7 +18,9 @@ class AppointmentsApiClient:
                 detail = response.json().get("detail", response.text)
             except ValueError:
                 detail = response.text
-            raise RuntimeError(f"Appointments API error ({response.status_code}): {detail}")
+            raise RuntimeError(
+                f"Appointments API error ({response.status_code}): {detail}"
+            )
         return response.json()
 
 
@@ -52,7 +54,9 @@ def build_tools(api_url: str):
         }
         if from_datetime is not None:
             params["from_datetime"] = from_datetime
-        return await client.request("GET", "/appointments/available-slots", params=params)
+        return await client.request(
+            "GET", "/appointments/available-slots", params=params
+        )
 
     @function_tool
     async def list_user_appointments(
@@ -93,7 +97,8 @@ def build_tools(api_url: str):
         start: str | None = None,
         appointment_type: str | None = None,
     ) -> dict[str, Any]:
-        """Move an appointment, optionally changing its type, using an ISO 8601 start datetime."""
+        """Move an appointment, optionally changing its type, using an ISO 8601 start
+        datetime."""
         if start is None and appointment_type is None:
             raise ValueError("Provide a new start or appointment type")
         payload: dict[str, Any] = {"user_id": user_id}
@@ -101,7 +106,9 @@ def build_tools(api_url: str):
             payload["start"] = start
         if appointment_type is not None:
             payload["appointment_type"] = appointment_type
-        return await client.request("PATCH", f"/appointments/{appointment_id}", json=payload)
+        return await client.request(
+            "PATCH", f"/appointments/{appointment_id}", json=payload
+        )
 
     @function_tool
     async def find_available_appointment_types(

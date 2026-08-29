@@ -1,6 +1,6 @@
 """Unit tests for all functions in src/main.py."""
 
-from datetime import datetime, date
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -8,14 +8,13 @@ import sqlite_utils
 
 import core.main as main_module
 from core.main import (
-    get_appointment_type,
-    is_blocked,
-    get_working_hours,
-    get_next_free_slots,
     book_appointment,
+    get_appointment_type,
+    get_next_free_slots,
+    get_working_hours,
+    is_blocked,
     load_user,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -57,6 +56,7 @@ TZ = ZoneInfo("America/Argentina/Buenos_Aires")
 
 class TestGetAppointmentType:
     __test__ = False
+
     def test_finds_by_exact_name(self, user):
         result = get_appointment_type(user, "Follow-up")
         assert result["name"] == "Follow-up"
@@ -197,34 +197,26 @@ class TestIsBlocked:
     # --- Recurring month ---
 
     def test_blocked_recurring_month_matches(self, user):
-        user["blocked_time"] = [
-            {"condition": {"month": "december"}}
-        ]
+        user["blocked_time"] = [{"condition": {"month": "december"}}]
         start = datetime(2026, 12, 15, 10, 0, tzinfo=TZ)
         end = datetime(2026, 12, 15, 10, 30, tzinfo=TZ)
         assert is_blocked(user, start, end) is True
 
     def test_blocked_recurring_month_no_match(self, user):
-        user["blocked_time"] = [
-            {"condition": {"month": "december"}}
-        ]
+        user["blocked_time"] = [{"condition": {"month": "december"}}]
         start = datetime(2026, 6, 15, 10, 0, tzinfo=TZ)
         end = datetime(2026, 6, 15, 10, 30, tzinfo=TZ)
         assert is_blocked(user, start, end) is False
 
     def test_blocked_recurring_month_case_insensitive(self, user):
-        user["blocked_time"] = [
-            {"condition": {"month": "August"}}
-        ]
+        user["blocked_time"] = [{"condition": {"month": "August"}}]
         start = datetime(2026, 8, 10, 10, 0, tzinfo=TZ)
         end = datetime(2026, 8, 10, 10, 30, tzinfo=TZ)
         assert is_blocked(user, start, end) is True
 
     def test_blocked_recurring_month_condition_without_month(self, user):
         """condition dict without a 'month' key should not block anything."""
-        user["blocked_time"] = [
-            {"condition": {}}
-        ]
+        user["blocked_time"] = [{"condition": {}}]
         start = datetime(2026, 8, 10, 10, 0, tzinfo=TZ)
         end = datetime(2026, 8, 10, 10, 30, tzinfo=TZ)
         assert is_blocked(user, start, end) is False
@@ -250,6 +242,7 @@ class TestIsBlocked:
 
 class TestGetWorkingHours:
     __test__ = False
+
     def test_returns_start_and_end_for_matching_weekday(self, user):
         # 2026-08-24 is a Monday (weekday 0)
         day = date(2026, 8, 24)
@@ -264,9 +257,7 @@ class TestGetWorkingHours:
         assert get_working_hours(user, day) is None
 
     def test_returns_none_for_weekday_without_rule(self, user):
-        user["rules"] = [
-            {"weekday": 0, "start": "09:00", "end": "17:00"}
-        ]
+        user["rules"] = [{"weekday": 0, "start": "09:00", "end": "17:00"}]
         # Tuesday (weekday 2) has no rule
         day = date(2026, 8, 25)
         assert get_working_hours(user, day) is None
@@ -288,11 +279,13 @@ class TestGetWorkingHours:
         assert result == (expected_start, expected_end)
 
     def test_rrule_matches_configured_weekday(self, user):
-        user["rules"] = [{
-            "rrule": "FREQ=WEEKLY;BYDAY=MO,WE",
-            "start": "10:00",
-            "end": "12:00",
-        }]
+        user["rules"] = [
+            {
+                "rrule": "FREQ=WEEKLY;BYDAY=MO,WE",
+                "start": "10:00",
+                "end": "12:00",
+            }
+        ]
 
         result = get_working_hours(user, date(2026, 8, 26))
 
@@ -302,12 +295,14 @@ class TestGetWorkingHours:
         )
 
     def test_rrule_respects_until_and_excluded_dates(self, user):
-        user["rules"] = [{
-            "rrule": "FREQ=WEEKLY;BYDAY=MO;UNTIL=20260907T000000",
-            "exclude_dates": ["2026-08-31"],
-            "start": "10:00",
-            "end": "12:00",
-        }]
+        user["rules"] = [
+            {
+                "rrule": "FREQ=WEEKLY;BYDAY=MO;UNTIL=20260907T000000",
+                "exclude_dates": ["2026-08-31"],
+                "start": "10:00",
+                "end": "12:00",
+            }
+        ]
 
         assert get_working_hours(user, date(2026, 8, 31)) is None
         assert get_working_hours(user, date(2026, 9, 14)) is None
@@ -320,15 +315,20 @@ class TestGetWorkingHours:
 
 class TestGetNextFreeSlots:
     __test__ = False
+
     def test_returns_requested_number_of_slots(self, user):
         slots = get_next_free_slots(
-            user, appointment_type="Follow-up", nr_slots=3,
+            user,
+            appointment_type="Follow-up",
+            nr_slots=3,
         )
         assert len(slots) == 3
 
     def test_each_slot_has_correct_keys(self, user):
         slots = get_next_free_slots(
-            user, appointment_type="Follow-up", nr_slots=1,
+            user,
+            appointment_type="Follow-up",
+            nr_slots=1,
         )
         assert len(slots) == 1
         slot = slots[0]
@@ -338,7 +338,9 @@ class TestGetNextFreeSlots:
 
     def test_slots_have_correct_appointment_type(self, user):
         slots = get_next_free_slots(
-            user, appointment_type="Initial Consultation", nr_slots=2,
+            user,
+            appointment_type="Initial Consultation",
+            nr_slots=2,
         )
         for slot in slots:
             assert slot["appointment_type"] == "Initial Consultation"
@@ -346,14 +348,14 @@ class TestGetNextFreeSlots:
     def test_slots_are_sequential_by_duration(self, user):
         """15-min Follow-up slots should be 15 minutes apart."""
         slots = get_next_free_slots(
-            user, appointment_type="Follow-up", nr_slots=3,
+            user,
+            appointment_type="Follow-up",
+            nr_slots=3,
         )
         for i in range(len(slots) - 1):
             s1 = datetime.fromisoformat(slots[i]["end"])
             s2 = datetime.fromisoformat(slots[i + 1]["start"])
-            assert s1 == s2, (
-                f"Slot {i} end {s1} != slot {i+1} start {s2}"
-            )
+            assert s1 == s2, f"Slot {i} end {s1} != slot {i + 1} start {s2}"
 
     def test_slots_skip_blocked_times(self, user):
         """Block a period and verify slots skip it."""
@@ -364,7 +366,9 @@ class TestGetNextFreeSlots:
             }
         ]
         slots = get_next_free_slots(
-            user, appointment_type="Follow-up", nr_slots=3,
+            user,
+            appointment_type="Follow-up",
+            nr_slots=3,
             from_datetime=datetime(2026, 8, 24, 9, 0, tzinfo=TZ),
         )
         # 09:00-09:15 is free, 09:15-10:00 blocked,
@@ -378,7 +382,9 @@ class TestGetNextFreeSlots:
     def test_from_datetime_filters_past_slots(self, user):
         """Slots before from_datetime should not be returned."""
         slots = get_next_free_slots(
-            user, appointment_type="Follow-up", nr_slots=2,
+            user,
+            appointment_type="Follow-up",
+            nr_slots=2,
             from_datetime=datetime(2026, 8, 24, 16, 0, tzinfo=TZ),
         )
         for slot in slots:
@@ -388,11 +394,15 @@ class TestGetNextFreeSlots:
     def test_from_datetime_none_defaults_to_now_equivalent(self, user):
         """from_datetime=None is equivalent to passing datetime.now(tz) explicitly."""
         slots_default = get_next_free_slots(
-            user, appointment_type="Follow-up", nr_slots=1,
+            user,
+            appointment_type="Follow-up",
+            nr_slots=1,
             from_datetime=None,
         )
         slots_explicit = get_next_free_slots(
-            user, appointment_type="Follow-up", nr_slots=1,
+            user,
+            appointment_type="Follow-up",
+            nr_slots=1,
             from_datetime=datetime.now(TZ),
         )
         # Both should return a valid slot (the exact slot may differ
@@ -404,7 +414,9 @@ class TestGetNextFreeSlots:
         """A naive from_datetime should be treated as in the user's timezone."""
         naive = datetime(2026, 8, 24, 10, 0)
         slots = get_next_free_slots(
-            user, appointment_type="Follow-up", nr_slots=1,
+            user,
+            appointment_type="Follow-up",
+            nr_slots=1,
             from_datetime=naive,
         )
         assert len(slots) == 1
@@ -414,7 +426,9 @@ class TestGetNextFreeSlots:
     def test_spans_multiple_days_if_needed(self, user):
         """If not enough slots in one day, continue to next day."""
         slots = get_next_free_slots(
-            user, appointment_type="Initial Consultation", nr_slots=20,
+            user,
+            appointment_type="Initial Consultation",
+            nr_slots=20,
             from_datetime=datetime(2026, 8, 24, 9, 0, tzinfo=TZ),
         )
         assert len(slots) == 20
@@ -424,7 +438,9 @@ class TestGetNextFreeSlots:
     def test_unknown_appointment_type(self, user):
         with pytest.raises(ValueError, match="Unknown appointment type"):
             get_next_free_slots(
-                user, appointment_type="Nope", nr_slots=1,
+                user,
+                appointment_type="Nope",
+                nr_slots=1,
             )
 
 
@@ -435,9 +451,12 @@ class TestGetNextFreeSlots:
 
 class TestBookAppointment:
     __test__ = False
+
     def test_book_successfully(self, user):
         booking = book_appointment(
-            user, "Follow-up", "2026-08-24T10:00:00-03:00",
+            user,
+            "Follow-up",
+            "2026-08-24T10:00:00-03:00",
         )
         assert booking["reason"] == "booked"
         assert booking["start"] == "2026-08-24T10:00:00-03:00"
@@ -468,126 +487,154 @@ class TestBookAppointment:
         assert start.tzinfo is not None
 
     def test_outside_working_hours_too_early(self, user):
-        with pytest.raises(
-            ValueError, match="Appointment is outside working hours"
-        ):
+        with pytest.raises(ValueError, match="Appointment is outside working hours"):
             book_appointment(
-                user, "Follow-up", "2026-08-24T08:00:00-03:00",
+                user,
+                "Follow-up",
+                "2026-08-24T08:00:00-03:00",
             )
 
     def test_outside_working_hours_too_late(self, user):
-        with pytest.raises(
-            ValueError, match="Appointment is outside working hours"
-        ):
+        with pytest.raises(ValueError, match="Appointment is outside working hours"):
             book_appointment(
-                user, "Follow-up", "2026-08-24T17:00:00-03:00",
+                user,
+                "Follow-up",
+                "2026-08-24T17:00:00-03:00",
             )
 
     def test_outside_working_hours_ends_late(self, user):
         """Starts at 16:50 but a 15 min slot ends at 17:05 -> outside."""
-        with pytest.raises(
-            ValueError, match="Appointment is outside working hours"
-        ):
+        with pytest.raises(ValueError, match="Appointment is outside working hours"):
             book_appointment(
-                user, "Follow-up", "2026-08-24T16:50:00-03:00",
+                user,
+                "Follow-up",
+                "2026-08-24T16:50:00-03:00",
             )
 
     def test_no_working_hours_that_day(self, user):
         # Sunday
         with pytest.raises(ValueError, match="No working hours on this day"):
             book_appointment(
-                user, "Follow-up", "2026-08-30T10:00:00-03:00",
+                user,
+                "Follow-up",
+                "2026-08-30T10:00:00-03:00",
             )
 
     def test_double_booking_raises_error(self, user):
         book_appointment(
-            user, "Follow-up", "2026-08-24T10:00:00-03:00",
+            user,
+            "Follow-up",
+            "2026-08-24T10:00:00-03:00",
         )
         with pytest.raises(ValueError, match="Time slot is already blocked"):
             book_appointment(
-                user, "Follow-up", "2026-08-24T10:00:00-03:00",
+                user,
+                "Follow-up",
+                "2026-08-24T10:00:00-03:00",
             )
 
     def test_overlapping_booking_raises_error(self, user):
         """An overlapping slot should also be considered blocked."""
         book_appointment(
-            user, "Initial Consultation", "2026-08-24T10:00:00-03:00",
+            user,
+            "Initial Consultation",
+            "2026-08-24T10:00:00-03:00",
         )
         with pytest.raises(ValueError, match="Time slot is already blocked"):
             book_appointment(
-                user, "Follow-up", "2026-08-24T10:15:00-03:00",
+                user,
+                "Follow-up",
+                "2026-08-24T10:15:00-03:00",
             )
 
     def test_unknown_appointment_type(self, user):
         with pytest.raises(ValueError, match="Unknown appointment type"):
             book_appointment(
-                user, "Nope", "2026-08-24T10:00:00-03:00",
+                user,
+                "Nope",
+                "2026-08-24T10:00:00-03:00",
             )
 
     def test_returns_correct_duration_for_different_types(self, user):
         booking = book_appointment(
-            user, "Initial Consultation", "2026-08-24T10:00:00-03:00",
+            user,
+            "Initial Consultation",
+            "2026-08-24T10:00:00-03:00",
         )
         assert booking["end"] == "2026-08-24T10:30:00-03:00"
 
     def test_blocked_by_date_range_raises(self, user):
-        user["blocked_time"] = [
-            {"start_date": "2026-08-01", "end_date": "2026-08-31"}
-        ]
+        user["blocked_time"] = [{"start_date": "2026-08-01", "end_date": "2026-08-31"}]
         with pytest.raises(ValueError, match="Time slot is already blocked"):
             book_appointment(
-                user, "Follow-up", "2026-08-24T10:00:00-03:00",
+                user,
+                "Follow-up",
+                "2026-08-24T10:00:00-03:00",
             )
 
     def test_booking_is_persisted(self, user):
         book_appointment(
-            user, "Follow-up", "2026-08-24T10:00:00-03:00",
+            user,
+            "Follow-up",
+            "2026-08-24T10:00:00-03:00",
         )
 
         db = sqlite_utils.Database(main_module.DATABASE_PATH)
-        rows = list(db.query(
-            "SELECT user, reason, start, end, "
-            "appointment_type FROM blocked_times "
-            "WHERE user = :user_id AND reason = 'booked'",
-            {"user_id": user["id"]},
-        ))
-        assert rows == [{
-            "user": user["id"],
-            "reason": "booked",
-            "start": "2026-08-24T10:00:00-03:00",
-            "end": "2026-08-24T10:15:00-03:00",
-            "appointment_type": "Follow-up",
-        }]
+        rows = list(
+            db.query(
+                "SELECT user, reason, start, end, "
+                "appointment_type FROM blocked_times "
+                "WHERE user = :user_id AND reason = 'booked'",
+                {"user_id": user["id"]},
+            )
+        )
+        assert rows == [
+            {
+                "user": user["id"],
+                "reason": "booked",
+                "start": "2026-08-24T10:00:00-03:00",
+                "end": "2026-08-24T10:15:00-03:00",
+                "appointment_type": "Follow-up",
+            }
+        ]
 
     def test_reloaded_user_sees_persisted_booking(self, user):
         main_module.AppointmentsService(main_module.DATABASE_PATH)
         db = sqlite_utils.Database(main_module.DATABASE_PATH)
-        db["users"].upsert({
-            "id": user["id"],
-            "name": "User",
-            "email": "user@example.com",
-            "timezone": user["timezone"],
-        })
-        db["rules"].insert_all([
+        db["users"].upsert(
             {
-                "id": index + 101,
-                "user": user["id"],
-                "weekday": rule["weekday"],
-                "start": rule["start"],
-                "end": rule["end"],
+                "id": user["id"],
+                "name": "User",
+                "email": "user@example.com",
+                "timezone": user["timezone"],
             }
-            for index, rule in enumerate(user["rules"])
-        ])
-        db["appointment_types"].insert_all([
-            {
-                "id": index + 101,
-                "user": user["id"],
-                **appointment_type,
-            }
-            for index, appointment_type in enumerate(user["appointment_types"])
-        ])
+        )
+        db["rules"].insert_all(
+            [
+                {
+                    "id": index + 101,
+                    "user": user["id"],
+                    "weekday": rule["weekday"],
+                    "start": rule["start"],
+                    "end": rule["end"],
+                }
+                for index, rule in enumerate(user["rules"])
+            ]
+        )
+        db["appointment_types"].insert_all(
+            [
+                {
+                    "id": index + 101,
+                    "user": user["id"],
+                    **appointment_type,
+                }
+                for index, appointment_type in enumerate(user["appointment_types"])
+            ]
+        )
         book_appointment(
-            user, "Follow-up", "2026-08-24T10:00:00-03:00",
+            user,
+            "Follow-up",
+            "2026-08-24T10:00:00-03:00",
         )
 
         reloaded_user = load_user(user["id"])
@@ -600,40 +647,52 @@ class TestBookAppointment:
         }
         with pytest.raises(ValueError, match="Time slot is already blocked"):
             book_appointment(
-                reloaded_user, "Follow-up", "2026-08-24T10:00:00-03:00",
+                reloaded_user,
+                "Follow-up",
+                "2026-08-24T10:00:00-03:00",
             )
 
     def test_bookings_are_isolated_by_user(self, user):
         second_user_id = "second-user"
         main_module.AppointmentsService(main_module.DATABASE_PATH)
         db = sqlite_utils.Database(main_module.DATABASE_PATH)
-        db["users"].insert({
-            "id": second_user_id,
-            "name": "Second User",
-            "email": "second@example.com",
-            "timezone": user["timezone"],
-        })
-        db["rules"].insert({
-            "id": 101,
-            "user": second_user_id,
-            "weekday": 0,
-            "start": "09:00",
-            "end": "17:00",
-        })
-        db["appointment_types"].insert({
-            "id": 101,
-            "user": second_user_id,
-            "name": "Follow-up",
-            "duration_minutes": 15,
-        })
+        db["users"].insert(
+            {
+                "id": second_user_id,
+                "name": "Second User",
+                "email": "second@example.com",
+                "timezone": user["timezone"],
+            }
+        )
+        db["rules"].insert(
+            {
+                "id": 101,
+                "user": second_user_id,
+                "weekday": 0,
+                "start": "09:00",
+                "end": "17:00",
+            }
+        )
+        db["appointment_types"].insert(
+            {
+                "id": 101,
+                "user": second_user_id,
+                "name": "Follow-up",
+                "duration_minutes": 15,
+            }
+        )
 
         book_appointment(
-            user, "Follow-up", "2026-08-24T10:00:00-03:00",
+            user,
+            "Follow-up",
+            "2026-08-24T10:00:00-03:00",
         )
         second_user = load_user(second_user_id)
 
         assert second_user["blocked_time"] == []
         booking = book_appointment(
-            second_user, "Follow-up", "2026-08-24T10:00:00-03:00",
+            second_user,
+            "Follow-up",
+            "2026-08-24T10:00:00-03:00",
         )
         assert booking["start"] == "2026-08-24T10:00:00-03:00"

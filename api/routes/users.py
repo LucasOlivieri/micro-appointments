@@ -17,8 +17,7 @@ def create_router(database_path: Path) -> APIRouter:
     )
     def list_users():
         service = _service(database_path)
-        rows = list(service.db.query(
-            """
+        rows = list(service.db.query("""
             SELECT
                 u.id,
                 u.name,
@@ -28,8 +27,7 @@ def create_router(database_path: Path) -> APIRouter:
             FROM users u
             LEFT JOIN appointment_types at ON at.user = u.id
             ORDER BY u.name, u.id, at.id
-            """
-        ))
+            """))
 
         users_by_id: dict[str, dict] = {}
         for row in rows:
