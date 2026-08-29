@@ -8,7 +8,7 @@ runner = CliRunner()
 
 
 def test_help_lists_setup_options():
-    result = runner.invoke(setup.app, ["--help"])
+    result = runner.invoke(setup.app, ["--help"], color=False)
 
     assert result.exit_code == 0
     assert "--output" in result.stdout
