@@ -20,7 +20,7 @@ def create_app(database_path: str | Path = DEFAULT_DATABASE_PATH) -> FastAPI:
     )
     app.include_router(create_users_router(database_path))
     app.include_router(create_appointments_router(database_path))
-    app.include_router(create_agent_router())
+    app.include_router(create_agent_router(database_path))
     return app
 
 
