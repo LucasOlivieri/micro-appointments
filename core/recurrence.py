@@ -25,7 +25,8 @@ def rule_applies_on(rule, day, timezone):
     recurrence = rrulestr(rrule_text, dtstart=start)
     day_start = datetime.combine(day, time.min)
     day_end = day_start + timedelta(days=1)
-    if not recurrence.between(day_start, day_end, inc=True):
+    occurrences = recurrence.between(day_start, day_end, inc=True)
+    if not any(occurrence.date() == day for occurrence in occurrences):
         return False
 
     excluded_dates = rule.get("exclude_dates") or []

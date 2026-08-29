@@ -307,6 +307,18 @@ class TestGetWorkingHours:
         assert get_working_hours(user, date(2026, 8, 31)) is None
         assert get_working_hours(user, date(2026, 9, 14)) is None
 
+    def test_rrule_does_not_match_previous_day_at_midnight(self, user):
+        user["rules"] = [
+            {
+                "rrule": "FREQ=WEEKLY;BYDAY=MO",
+                "start": "12:40",
+                "end": "18:40",
+            }
+        ]
+
+        assert get_working_hours(user, date(2026, 8, 30)) is None
+        assert get_working_hours(user, date(2026, 8, 31)) is not None
+
 
 # ===================================================================
 # get_next_free_slots

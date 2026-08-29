@@ -1,6 +1,7 @@
 import logging
 import os
 from collections.abc import Mapping
+
 from dotenv import load_dotenv
 
 from integrations.base import Integration
@@ -23,7 +24,7 @@ class IntegrationFactory:
         cls, environ: Mapping[str, str] | None = None
     ) -> list[Integration]:
         load_dotenv()
-        environment = environ or os.environ
+        environment = os.environ if environ is None else environ
         integrations: list[Integration] = []
         for name, integration_class in cls._registry.items():
             enabled = environment.get(f"{name.upper()}_ENABLED", "").lower()
