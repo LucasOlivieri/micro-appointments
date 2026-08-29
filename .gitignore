@@ -7,3 +7,4 @@
 .pytest_cache
 # tests.ipynb
 config.json
+backups

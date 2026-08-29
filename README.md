@@ -78,6 +78,25 @@ You can also set a custom output path or timezone:
 python setup.py --output config.json --timezone UTC
 ```
 
+### Backup config from database
+
+To create a timestamped backup of the current configuration stored in the database:
+
+```bash
+python backup_config.py
+```
+
+This generates a file like `config_backup_2026-08-29_14-30-45.json` in the project root.
+
+Options:
+
+```bash
+python backup_config.py --output-dir ./backups  # Save to custom directory
+python backup_config.py --verbose               # Show detailed export statistics
+```
+
+Backups include all users, rules, appointment types, and blocked times in the same format as `config.json`.
+
 ## Database setup
 
 The app initializes SQLite via `core/db.py`. On startup it applies migrations and then syncs data from `config.json` into the database tables.

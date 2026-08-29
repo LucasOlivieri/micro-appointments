@@ -93,15 +93,21 @@ def add_rule_recurrence_columns(db):
 
 
 @migrations()
-def setup_user(db):
-    sync_config_to_db(db)
-
-@migrations()
 def add_customer_column(db):
     db["customer"].create({
         "id": str,
         "phone": str,
         "name": str,
         "info": str
-    })
-    db.table("blocked_times").add_column("customer", fk="customer", fk_col="id")
+    }, if_not_exists=True)
+    columns = {
+        row["name"]
+        for row in db.query("PRAGMA table_info(blocked_times)")
+    }
+    if "customer" not in columns:
+        db.table("blocked_times").add_column("customer", fk="customer", fk_col="id")
+
+
+@migrations()
+def setup_user(db):
+    sync_config_to_db(db)
