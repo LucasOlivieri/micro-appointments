@@ -1,7 +1,11 @@
 import json
+from pathlib import Path
+
+import sqlite_utils
 from typer.testing import CliRunner
 
 import setup
+from core.db import sync_config_to_db
 
 
 runner = CliRunner()

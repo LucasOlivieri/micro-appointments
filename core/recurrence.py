@@ -28,7 +28,6 @@ def rule_applies_on(rule, day, timezone):
     if not recurrence.between(day_start, day_end, inc=True):
         return False
 
-    excluded = {
-        date.fromisoformat(value) for value in rule.get("exclude_dates", [])
-    }
+    excluded_dates = rule.get("exclude_dates") or []
+    excluded = {date.fromisoformat(value) for value in excluded_dates}
     return day not in excluded

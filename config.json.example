@@ -20,6 +20,12 @@
                     "id": 1,
                     "name": "Initial Consultation",
                     "duration_minutes": 30
+                },
+                {
+                    "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
+                    "id": 2,
+                    "name": "Follow-up",
+                    "duration_minutes": 15
                 }
             ],
             "blocked_times": [

@@ -1,6 +1,33 @@
 import json
+from pathlib import Path
 
 from sqlite_utils import Migrations
+
+
+def load_config(config_path=None):
+    if config_path is None:
+        config_path = Path(__file__).resolve().parent.parent / "config.json"
+    config_path = Path(config_path)
+    if not config_path.exists():
+        return {"users": []}
+    return json.loads(config_path.read_text(encoding="utf-8"))
+
+
+def sync_config_to_db(db, config_path=None):
+    config = load_config(config_path)
+    for user in config.get("users", []):
+        db["users"].upsert({
+            "id": user["id"],
+            "email": user.get("email"),
+            "timezone": user.get("timezone"),
+            "name": user.get("name"),
+        })
+        db["rules"].upsert_all(user.get("rules", []), pk="id")
+        db["blocked_times"].upsert_all(user.get("blocked_times", []), pk="id")
+        db["appointment_types"].upsert_all(
+            user.get("appointment_types", []),
+            pk="id",
+        )
 
 
 migrations = Migrations("main")
@@ -67,20 +94,7 @@ def add_rule_recurrence_columns(db):
 
 @migrations()
 def setup_user(db):
-    config = json.loads(open("config.json").read())
-    users = config["users"]
-    for user in users:
-        user_data = {
-            "id": user["id"],
-            "email": user["email"],
-            "timezone": user["timezone"],
-            "name": user["name"],
-        }
-        print("Creating user: ", user_data)
-        db.table("users").upsert(user_data)
-        db.table("rules").upsert_all(user["rules"])
-        db.table("blocked_times").upsert_all(user["blocked_times"])
-        db.table("appointment_types").upsert_all(user["appointment_types"])
+    sync_config_to_db(db)
 
 @migrations()
 def add_customer_column(db):

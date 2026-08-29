@@ -37,10 +37,19 @@ def test_users_lists_calendar_users(api, tmp_path):
     users = response.json()
     users_by_id = {user["id"]: user for user in users}
     assert users_by_id["another-user"] == {
-        "id": "another-user", "name": "Another User", "timezone": "UTC",
+        "id": "another-user",
+        "name": "Another User",
+        "timezone": "UTC",
+        "available_appointment_types": [],
     }
     assert users_by_id[API_USER_ID] == {
-        "id": API_USER_ID, "name": "API User", "timezone": API_TIMEZONE,
+        "id": API_USER_ID,
+        "name": "API User",
+        "timezone": API_TIMEZONE,
+        "available_appointment_types": [
+            {"name": "Follow-up", "duration_minutes": 15},
+            {"name": "Initial Consultation", "duration_minutes": 30},
+        ],
     }
     assert [user["name"] for user in users] == sorted(
         user["name"] for user in users
