@@ -1,5 +1,6 @@
 import json
 
+import click
 from typer.testing import CliRunner
 
 import setup
@@ -9,11 +10,11 @@ runner = CliRunner()
 
 def test_help_lists_setup_options():
     result = runner.invoke(setup.app, ["--help"], color=False, env={"COLUMNS": "120"})
-
     assert result.exit_code == 0
-    assert "--output" in result.stdout
-    assert "--users" in result.stdout
-    assert "--timezone" in result.stdout
+    output = click.unstyle(result.output)
+    assert "--output" in output
+    assert "--users" in output
+    assert "--timezone" in output
 
 
 def test_time_choices_cover_hours_and_minutes():

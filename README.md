@@ -2,6 +2,8 @@
 
 A small scheduling app for managing doctors or staff calendars, appointment types, and booked availability. It uses SQLite as the persistence layer, a FastAPI API for interacting with the calendar, and configuration-driven user setup.
 
+[![CI/CD](https://github.com/LucasOlivieri/micro-appointments/actions/workflows/ci.yml/badge.svg)](https://github.com/LucasOlivieri/micro-appointments/actions/workflows/ci.yml)
+
 ## Features
 
 - Configurable users with timezone-aware calendar rules
