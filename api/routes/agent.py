@@ -1,11 +1,10 @@
-from datetime import datetime
 from pathlib import Path
-from string import Template
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from api.dependencies import DEFAULT_DATABASE_PATH, _service
 from bot.agent import run_agent
+from bot.handler import build_agent_prompt
 
 
 def _resolve_user_id(database_path: Path, user_id: str | None) -> str:
@@ -52,14 +51,10 @@ def create_router(database_path: Path = DEFAULT_DATABASE_PATH) -> APIRouter:
             await websocket.close()
             return
 
-        current_time = str(datetime.now())
-        prompt = Template(open("bot/templates/message.md").read()).substitute(
-            user_id=user_id or "not provided",
-            current_time=current_time,
-            message=message,
-        )
         try:
-            response = await run_agent(prompt, conversation_id)
+            response = await run_agent(
+                build_agent_prompt(message, user_id), conversation_id
+            )
         except Exception as error:
             response = f"Unable to reach the appointment agent: {error}"
 

@@ -13,6 +13,7 @@ A small scheduling app for managing doctors or staff calendars, appointment type
 - Booking logic that prevents double-booking
 - FastAPI endpoints for listing users and scheduling appointments
 - Agent tooling for an LLM-style assistant to operate the calendar
+- Telegram webhook integration for the receptionist assistant
 
 ## Project structure
 
@@ -116,6 +117,23 @@ uv run uvicorn api.main:app --reload
 Then open:
 
 - http://localhost:8000/docs for the FastAPI Swagger UI
+
+### Telegram integration
+
+Telegram is disabled by default. To enable it, configure the following environment
+variables before starting the API:
+
+```text
+TELEGRAM_ENABLED=true
+TELEGRAM_BOT_TOKEN=your-bot-token
+TELEGRAM_WEBHOOK_URL=https://your-domain.example/integrations/telegram/webhook
+TELEGRAM_WEBHOOK_SECRET=optional-secret
+```
+
+The application registers the webhook during startup and removes it during shutdown.
+All Telegram chats use the same receptionist agent. The agent determines which
+appointment user applies based on the conversation. Invalid Telegram configuration or
+startup failures are logged without preventing the API from starting.
 
 ## Run tests
 
