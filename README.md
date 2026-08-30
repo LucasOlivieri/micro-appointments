@@ -14,6 +14,7 @@ A small scheduling app for managing doctors or staff calendars, appointment type
 - FastAPI endpoints for listing users and scheduling appointments
 - Agent tooling for an LLM-style assistant to operate the calendar
 - Telegram webhook integration for the receptionist assistant
+- Google Calendar integration for syncing booked appointments
 
 ## Project structure
 
@@ -134,6 +135,48 @@ The application registers the webhook during startup and removes it during shutd
 All Telegram chats use the same receptionist agent. The agent determines which
 appointment user applies based on the conversation. Invalid Telegram configuration or
 startup failures are logged without preventing the API from starting.
+
+### Google Calendar integration
+
+Google Calendar is disabled by default. To enable it, configure the following
+environment variables before starting the API:
+
+```text
+GOOGLE_CALENDAR_ENABLED=true
+GOOGLE_OAUTH_CLIENT_SECRET=client_secret_xxxxx.json
+GOOGLE_TOKEN_FILE=google_token.json
+```
+
+The integration uses **Google OAuth 2.0 (desktop flow)** to sync booked
+appointments. The first time the API starts, it will print a URL to visit in
+your browser for authorization. After authorizing, the token is saved to
+`GOOGLE_TOKEN_FILE` for subsequent runs.
+
+The doctor's email (from the user's `email` field in `config.json`) is added
+as an event attendee.
+
+**What gets synced:**
+
+| Action | Calendar effect |
+|--------|----------------|
+| Appointment created (`POST /appointments`) | Event created on the authenticated user's primary calendar |
+| Appointment rescheduled (`PATCH /appointments/{id}`) | Event start/end updated |
+| Appointment cancelled (`DELETE /appointments/{id}`) | Event removed from calendar |
+
+Only appointments with `reason='booked'` trigger calendar events — vacations,
+maintenance, and other blocked-time ranges are ignored.
+
+**OAuth setup:**
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a project (or select an existing one).
+3. Enable the **Google Calendar API**.
+4. Under **Credentials**, create an **OAuth 2.0 Client ID** (Desktop app type).
+5. Download the JSON file and save it as `client_secret_xxxxx.json`.
+6. Set `GOOGLE_OAUTH_CLIENT_SECRET` to the path of that file.
+
+Invalid configuration or API failures are logged without preventing the API
+from starting.
 
 ## Run tests
 

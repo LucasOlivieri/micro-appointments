@@ -100,3 +100,10 @@ def add_customer_column(db):
 @migrations()
 def setup_user(db):
     sync_config_to_db(db)
+
+
+@migrations()
+def add_google_event_id_column(db):
+    columns = {row["name"] for row in db.query("PRAGMA table_info(blocked_times)")}
+    if "google_event_id" not in columns:
+        db.execute('ALTER TABLE blocked_times ADD COLUMN "google_event_id" TEXT')

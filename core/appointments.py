@@ -4,6 +4,7 @@ from .db import get_db
 
 CREATED = "created"
 UPDATED = "updated"
+DELETED = "deleted"
 _ACTION_HANDLERS: defaultdict = defaultdict(list)
 
 
@@ -94,6 +95,7 @@ class AppointmentsService:
         if appointment is None:
             return None
         self.db["blocked_times"].delete(appointment_id)
+        _dispatch(DELETED, appointment)
         return appointment
 
     def create_blocked_time(self, item):

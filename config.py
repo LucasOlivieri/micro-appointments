@@ -1,5 +1,9 @@
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 class Config:
     """Application configuration loaded from environment variables."""
@@ -26,3 +30,17 @@ class Config:
     TELEGRAM_BOT_TOKEN: str | None = os.environ.get("TELEGRAM_BOT_TOKEN")
     TELEGRAM_WEBHOOK_URL: str | None = os.environ.get("TELEGRAM_WEBHOOK_URL")
     TELEGRAM_WEBHOOK_SECRET: str | None = os.environ.get("TELEGRAM_WEBHOOK_SECRET")
+
+    # Google Calendar integration
+    GOOGLE_CALENDAR_ENABLED: bool = os.environ.get(
+        "GOOGLE_CALENDAR_ENABLED", ""
+    ).lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    GOOGLE_OAUTH_CLIENT_SECRET: str | None = os.environ.get(
+        "GOOGLE_OAUTH_CLIENT_SECRET"
+    )
+    GOOGLE_TOKEN_FILE: str = os.environ.get("GOOGLE_TOKEN_FILE", "google_token.json")
