@@ -162,6 +162,31 @@ uv run bandit -q -r api core bot
 uv run pytest -q
 ```
 
+## Pre-commit hooks
+
+The project includes a `.pre-commit-config.yaml` with the following hooks:
+
+| Hook | Stage | Description |
+|------|-------|-------------|
+| `trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-added-large-files` | commit | General file hygiene |
+| `ruff` | commit | Lint and auto-fix |
+| `black` | commit | Code formatting |
+| `bandit` | push | Security scan (`api`, `core`, `bot`) |
+| `mypy` | push | Type checking (`api`, `core`, `bot`) |
+| `pytest` | push | Run test suite |
+
+Install the hooks with:
+
+```bash
+uv run pre-commit install --hook-type pre-commit --hook-type pre-push
+```
+
+To run all hooks manually:
+
+```bash
+uv run pre-commit run --all-files
+```
+
 Optional (same container build used by CI on `main` pushes):
 
 ```bash

@@ -23,6 +23,9 @@ dependencies = [
 ]
 
 [dependency-groups]
+dev = [
+    "pre-commit>=4.6.2",
+]
 test = [
     "ipykernel>=7.1.0",
     "jupyter>=1.1.1",
