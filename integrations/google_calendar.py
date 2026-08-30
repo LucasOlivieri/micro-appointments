@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from pathlib import Path
+from typing import cast
 
 import sqlite_utils
 from google.auth.exceptions import GoogleAuthError
@@ -19,6 +20,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from sqlite_utils.db import Table
 
 from core.appointments import CREATED, DELETED, UPDATED, onaction
 from integrations.base import Integration
@@ -100,8 +102,8 @@ class GoogleCalendarIntegration(Integration):
         """Return the email for *user_id* from the users table."""
         try:
             db = sqlite_utils.Database(str(self._db_path))
-            row = db["users"].get(user_id)
-            return row.get("email")
+            row = cast(Table, db["users"]).get(user_id)
+            return row.get("email") if row else None
         except Exception:
             logger.exception("Failed to look up email for user %s", user_id)
             return None
@@ -110,8 +112,8 @@ class GoogleCalendarIntegration(Integration):
         """Return the timezone for *user_id* from the users table."""
         try:
             db = sqlite_utils.Database(str(self._db_path))
-            row = db["users"].get(user_id)
-            return row.get("timezone")
+            row = cast(Table, db["users"]).get(user_id)
+            return row.get("timezone") if row else None
         except Exception:
             logger.exception("Failed to look up timezone for user %s", user_id)
             return None
@@ -120,7 +122,9 @@ class GoogleCalendarIntegration(Integration):
         """Persist the Google Calendar event ID on the blocked_times row."""
         try:
             db = sqlite_utils.Database(str(self._db_path))
-            db["blocked_times"].update(blocked_time_id, {"google_event_id": event_id})
+            cast(Table, db["blocked_times"]).update(
+                blocked_time_id, {"google_event_id": event_id}
+            )
         except Exception:
             logger.exception(
                 "Failed to store google_event_id for blocked_time %s",
@@ -131,8 +135,8 @@ class GoogleCalendarIntegration(Integration):
         """Retrieve the stored Google Calendar event ID for a blocked_time row."""
         try:
             db = sqlite_utils.Database(str(self._db_path))
-            row = db["blocked_times"].get(blocked_time_id)
-            return row.get("google_event_id")
+            row = cast(Table, db["blocked_times"]).get(blocked_time_id)
+            return row.get("google_event_id") if row else None
         except Exception:
             logger.exception(
                 "Failed to read google_event_id for blocked_time %s",
@@ -149,7 +153,7 @@ class GoogleCalendarIntegration(Integration):
         if item.get("reason") != "booked":
             return
 
-        user_id = item.get("user")
+        user_id = cast(str, item.get("user"))
         user_email = self._get_user_email(user_id)
         if not user_email:
             logger.warning(
@@ -198,7 +202,7 @@ class GoogleCalendarIntegration(Integration):
         if item.get("reason") != "booked":
             return
 
-        blocked_time_id = item.get("id")
+        blocked_time_id = cast(int, item.get("id"))
         event_id = item.get("google_event_id") or self._get_event_id(blocked_time_id)
 
         if not event_id:
@@ -209,7 +213,7 @@ class GoogleCalendarIntegration(Integration):
             self._sync_created(item)
             return
 
-        user_id = item.get("user")
+        user_id = cast(str, item.get("user"))
         timezone = self._get_user_timezone(user_id) or "UTC"
         start_str = item.get("start", "")
         end_str = item.get("end", "")
@@ -262,7 +266,7 @@ class GoogleCalendarIntegration(Integration):
         if item.get("reason") != "booked":
             return
 
-        blocked_time_id = item.get("id")
+        blocked_time_id = cast(int, item.get("id"))
         event_id = item.get("google_event_id") or self._get_event_id(blocked_time_id)
 
         if not event_id:
