@@ -1,18 +1,15 @@
 import argparse
 import asyncio
-import os
-
-from dotenv import load_dotenv
 
 from bot.agent import run_agent
+from config import Config
 
 
 def main() -> None:
-    load_dotenv()
     parser = argparse.ArgumentParser(description="Chat with the appointment assistant")
     parser.add_argument("message", nargs="?", help="Message to send to the assistant")
     parser.add_argument("--conversation-id", default="default")
-    parser.add_argument("--user-id", default=os.getenv("APPOINTMENTS_USER_ID"))
+    parser.add_argument("--user-id", default=Config.APPOINTMENTS_USER_ID)
     args = parser.parse_args()
     message = args.message or input("You: ")
     if args.user_id:

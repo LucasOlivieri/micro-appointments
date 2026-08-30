@@ -1,9 +1,7 @@
 import logging
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
 
@@ -11,11 +9,10 @@ from api.dependencies import DEFAULT_DATABASE_PATH
 from api.routes.agent import create_router as create_agent_router
 from api.routes.appointments import create_router as create_appointments_router
 from api.routes.users import create_router as create_users_router
+from config import Config
 from integrations import Integration, IntegrationFactory
 
 logger = logging.getLogger(__name__)
-
-load_dotenv()
 
 
 def create_app(database_path: str | Path = DEFAULT_DATABASE_PATH) -> FastAPI:
@@ -24,7 +21,7 @@ def create_app(database_path: str | Path = DEFAULT_DATABASE_PATH) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         logger.warning("REGISTRY: %s", IntegrationFactory._registry)
-        logger.warning("TELEGRAM_ENABLED: %r", os.environ.get("TELEGRAM_ENABLED"))
+        logger.warning("TELEGRAM_ENABLED: %r", Config.TELEGRAM_ENABLED)
         configured: list[Integration] = IntegrationFactory.create_configured()
         logger.warning(
             "CONFIGURED: %s",

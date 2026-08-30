@@ -2,8 +2,6 @@ import logging
 import os
 from collections.abc import Mapping
 
-from dotenv import load_dotenv
-
 from integrations.base import Integration
 
 logger = logging.getLogger(__name__)
@@ -23,7 +21,6 @@ class IntegrationFactory:
     def create_configured(
         cls, environ: Mapping[str, str] | None = None
     ) -> list[Integration]:
-        load_dotenv()
         environment = os.environ if environ is None else environ
         integrations: list[Integration] = []
         for name, integration_class in cls._registry.items():

@@ -1,17 +1,14 @@
-import os
-
 from agents import Agent, OpenAIProvider, RunConfig, Runner, SQLiteSession
-from dotenv import load_dotenv
 
 from bot.tools import build_tools
+from config import Config
 
 INSTRUCTIONS = open("bot/templates/system-prompt.md").read()
 
 
 def build_agent(model: str | None = None) -> Agent:
-    load_dotenv()
-    api_url = os.getenv("APPOINTMENTS_API_URL", "http://127.0.0.1:8000")
-    model = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    api_url = Config.APPOINTMENTS_API_URL
+    model = model or Config.OPENAI_MODEL
     return Agent(
         name="Appointment Assistant",
         instructions=INSTRUCTIONS,
@@ -27,14 +24,13 @@ async def run_agent(
     model: str | None = None,
 ) -> str:
     """Run one turn and persist the conversation in SQLite."""
-    load_dotenv()
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = Config.OPENAI_API_KEY
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is required")
-    memory_path = os.getenv("AGENT_MEMORY_PATH", "memory.sqlite3")
+    memory_path = Config.AGENT_MEMORY_PATH
     provider = OpenAIProvider(
         api_key=api_key,
-        base_url=os.getenv("OPENAI_BASE_URL") or None,
+        base_url=Config.OPENAI_BASE_URL or None,
     )
     result = await Runner.run(
         build_agent(model=model),
