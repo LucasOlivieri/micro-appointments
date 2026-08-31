@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Mapping
 
 from aiogram import Bot, Dispatcher, Router
@@ -6,6 +7,8 @@ from aiogram.types import Message, Update
 from bot.handler import handle_agent_message
 from integrations.base import Integration
 from integrations.factory import IntegrationFactory
+
+logger = logging.getLogger(__name__)
 
 
 @IntegrationFactory.register
@@ -52,6 +55,7 @@ class TelegramIntegration(Integration):
             secret_token=self.environ.get("TELEGRAM_WEBHOOK_SECRET") or None,
         )
         self._started = True
+        logger.info("Telegram integration enabled.")
 
     async def stop(self) -> None:
         if not self._started:

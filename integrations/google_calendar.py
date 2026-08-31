@@ -313,6 +313,7 @@ class GoogleCalendarIntegration(Integration):
 
     async def start(self) -> None:
         """No-op: handlers fire synchronously via _dispatch."""
+        logger.info("Google Calendar integration enabled.")
 
     async def stop(self) -> None:
         """No-op: no resources to release."""

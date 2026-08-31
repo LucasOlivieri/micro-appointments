@@ -15,4 +15,5 @@ memory.sqlite3-wal
 uv.lock
 credentials.json
 google_token.json
+logs/
 # tests.ipynb

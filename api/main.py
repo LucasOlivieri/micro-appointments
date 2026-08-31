@@ -9,8 +9,12 @@ from api.dependencies import DEFAULT_DATABASE_PATH
 from api.routes.agent import create_router as create_agent_router
 from api.routes.appointments import create_router as create_appointments_router
 from api.routes.users import create_router as create_users_router
-from config import Config
 from integrations import Integration, IntegrationFactory
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +24,7 @@ def create_app(database_path: str | Path = DEFAULT_DATABASE_PATH) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        logger.warning("REGISTRY: %s", IntegrationFactory._registry)
-        logger.warning("TELEGRAM_ENABLED: %r", Config.TELEGRAM_ENABLED)
         configured: list[Integration] = IntegrationFactory.create_configured()
-        logger.warning(
-            "CONFIGURED: %s",
-            [integration.name for integration in configured],
-        )
         app.state.integrations = configured
         for integration in configured:
             try:
