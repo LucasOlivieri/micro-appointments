@@ -8,6 +8,3 @@ def get_db(path="db.sqlite3"):
     migrations.apply(db)
     sync_config_to_db(db)
     return db
-
-
-db = get_db()
