@@ -6,12 +6,13 @@
 .pytest_cache
 .mypy_cache
 .ruff_cache
-# tests.ipynb
 config.json
 backups
-*.sqlite3
+db.sqlite3
 memory.sqlite3
 memory.sqlite3-shm
 memory.sqlite3-wal
 uv.lock
 credentials.json
+google_token.json
+# tests.ipynb
