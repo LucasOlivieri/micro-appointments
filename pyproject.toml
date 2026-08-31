@@ -70,6 +70,7 @@ exclude = [
 select = ["E", "F", "I", "B", "UP"]
 
 [tool.mypy]
+explicit_package_bases = true
 python_version = "3.14"
 warn_return_any = false
 warn_unused_configs = true

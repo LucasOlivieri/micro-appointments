@@ -31,7 +31,7 @@ repos:
         name: mypy
         entry: uv run mypy api core bot
         language: system
-        types: [python]
+        pass_filenames: false
         require_serial: true
         stages: [push]
 
