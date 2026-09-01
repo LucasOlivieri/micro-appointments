@@ -14,15 +14,14 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
-import sqlite_utils
 from google.auth.exceptions import GoogleAuthError
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from sqlite_utils.db import Table
 
 from core.appointments import CREATED, DELETED, UPDATED, onaction
+from core.models import BlockedTime, User
 from integrations.base import Integration
 from integrations.factory import IntegrationFactory
 
@@ -83,47 +82,44 @@ class GoogleCalendarIntegration(Integration):
 
     def _register_handlers(self) -> None:
         @onaction(CREATED)
-        def handle_created(item: dict) -> None:
-            self._sync_created(item)
+        async def handle_created(item: dict) -> None:
+            await self._sync_created(item)
 
         @onaction(UPDATED)
-        def handle_updated(item: dict) -> None:
-            self._sync_updated(item)
+        async def handle_updated(item: dict) -> None:
+            await self._sync_updated(item)
 
         @onaction(DELETED)
-        def handle_deleted(item: dict) -> None:
-            self._sync_deleted(item)
+        async def handle_deleted(item: dict) -> None:
+            await self._sync_deleted(item)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _get_user_email(self, user_id: str) -> str | None:
+    async def _get_user_email(self, user_id: str) -> str | None:
         """Return the email for *user_id* from the users table."""
         try:
-            db = sqlite_utils.Database(str(self._db_path))
-            row = cast(Table, db["users"]).get(user_id)
-            return row.get("email") if row else None
+            row = await User.filter(id=user_id).first()
+            return row.email if row else None
         except Exception:
             logger.exception("Failed to look up email for user %s", user_id)
             return None
 
-    def _get_user_timezone(self, user_id: str) -> str | None:
+    async def _get_user_timezone(self, user_id: str) -> str | None:
         """Return the timezone for *user_id* from the users table."""
         try:
-            db = sqlite_utils.Database(str(self._db_path))
-            row = cast(Table, db["users"]).get(user_id)
-            return row.get("timezone") if row else None
+            row = await User.filter(id=user_id).first()
+            return row.timezone if row else None
         except Exception:
             logger.exception("Failed to look up timezone for user %s", user_id)
             return None
 
-    def _store_event_id(self, blocked_time_id: int, event_id: str) -> None:
+    async def _store_event_id(self, blocked_time_id: int, event_id: str) -> None:
         """Persist the Google Calendar event ID on the blocked_times row."""
         try:
-            db = sqlite_utils.Database(str(self._db_path))
-            cast(Table, db["blocked_times"]).update(
-                blocked_time_id, {"google_event_id": event_id}
+            await BlockedTime.filter(id=blocked_time_id).update(
+                google_event_id=event_id
             )
         except Exception:
             logger.exception(
@@ -131,12 +127,11 @@ class GoogleCalendarIntegration(Integration):
                 blocked_time_id,
             )
 
-    def _get_event_id(self, blocked_time_id: int) -> str | None:
+    async def _get_event_id(self, blocked_time_id: int) -> str | None:
         """Retrieve the stored Google Calendar event ID for a blocked_time row."""
         try:
-            db = sqlite_utils.Database(str(self._db_path))
-            row = cast(Table, db["blocked_times"]).get(blocked_time_id)
-            return row.get("google_event_id") if row else None
+            row = await BlockedTime.filter(id=blocked_time_id).first()
+            return row.google_event_id if row else None
         except Exception:
             logger.exception(
                 "Failed to read google_event_id for blocked_time %s",
@@ -148,20 +143,20 @@ class GoogleCalendarIntegration(Integration):
     # Event sync handlers
     # ------------------------------------------------------------------
 
-    def _sync_created(self, item: dict) -> None:
+    async def _sync_created(self, item: dict) -> None:
         """Create a Google Calendar event for a newly booked appointment."""
         if item.get("reason") != "booked":
             return
 
         user_id = cast(str, item.get("user"))
-        user_email = self._get_user_email(user_id)
+        user_email = await self._get_user_email(user_id)
         if not user_email:
             logger.warning(
                 "Cannot create calendar event for user %s: no email found", user_id
             )
             return
 
-        timezone = self._get_user_timezone(user_id) or "UTC"
+        timezone = await self._get_user_timezone(user_id) or "UTC"
         summary = item.get("appointment_type", "Appointment")
         start_str = item.get("start", "")
         end_str = item.get("end", "")
@@ -189,7 +184,7 @@ class GoogleCalendarIntegration(Integration):
                 event_id,
                 item.get("id"),
             )
-            self._store_event_id(item["id"], event_id)
+            await self._store_event_id(item["id"], event_id)
         except (HttpError, GoogleAuthError) as error:
             logger.error(
                 "Failed to create calendar event for blocked_time %s: %s",
@@ -197,24 +192,26 @@ class GoogleCalendarIntegration(Integration):
                 error,
             )
 
-    def _sync_updated(self, item: dict) -> None:
+    async def _sync_updated(self, item: dict) -> None:
         """Update a Google Calendar event when a booked appointment changes."""
         if item.get("reason") != "booked":
             return
 
         blocked_time_id = cast(int, item.get("id"))
-        event_id = item.get("google_event_id") or self._get_event_id(blocked_time_id)
+        event_id = item.get("google_event_id") or await self._get_event_id(
+            blocked_time_id
+        )
 
         if not event_id:
             logger.info(
                 "No google_event_id for blocked_time %s — creating new event",
                 blocked_time_id,
             )
-            self._sync_created(item)
+            await self._sync_created(item)
             return
 
         user_id = cast(str, item.get("user"))
-        timezone = self._get_user_timezone(user_id) or "UTC"
+        timezone = await self._get_user_timezone(user_id) or "UTC"
         start_str = item.get("start", "")
         end_str = item.get("end", "")
 
@@ -245,7 +242,7 @@ class GoogleCalendarIntegration(Integration):
                     event_id,
                     blocked_time_id,
                 )
-                self._sync_created(item)
+                await self._sync_created(item)
             else:
                 logger.error(
                     "Failed to update calendar event %s for blocked_time %s: %s",
@@ -261,13 +258,15 @@ class GoogleCalendarIntegration(Integration):
                 error,
             )
 
-    def _sync_deleted(self, item: dict) -> None:
+    async def _sync_deleted(self, item: dict) -> None:
         """Delete a Google Calendar event when a booked appointment is cancelled."""
         if item.get("reason") != "booked":
             return
 
         blocked_time_id = cast(int, item.get("id"))
-        event_id = item.get("google_event_id") or self._get_event_id(blocked_time_id)
+        event_id = item.get("google_event_id") or await self._get_event_id(
+            blocked_time_id
+        )
 
         if not event_id:
             logger.debug(

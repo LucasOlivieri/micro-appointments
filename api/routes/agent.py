@@ -2,21 +2,18 @@ from pathlib import Path
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from api.dependencies import DEFAULT_DATABASE_PATH, _service
+from api.dependencies import DEFAULT_DATABASE_PATH
 from bot.agent import run_agent
 from bot.handler import build_agent_prompt
+from core.models import User
 
 
-def _resolve_user_id(database_path: Path, user_id: str | None) -> str:
+async def _resolve_user_id(database_path: Path, user_id: str | None) -> str:
     user_id = (user_id or "").strip()
     if user_id:
         return user_id
 
-    rows = list(
-        _service(database_path).db.query(
-            "SELECT id FROM users ORDER BY LOWER(name), id"
-        )
-    )
+    rows = await User.all().order_by("name", "id").values("id")
     if len(rows) == 1:
         return str(rows[0]["id"])
     return ""
@@ -42,7 +39,7 @@ def create_router(database_path: Path = DEFAULT_DATABASE_PATH) -> APIRouter:
             await websocket.close()
             return
 
-        user_id = _resolve_user_id(database_path, payload.get("user_id"))
+        user_id = await _resolve_user_id(database_path, payload.get("user_id"))
         message = str(payload.get("message", ""))
         conversation_id = str(payload.get("conversation_id") or "ws-default")
 

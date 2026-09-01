@@ -3,7 +3,7 @@ Script to backup config.json from the database.
 
 Exports the current database state back into config.json format with a timestamped
 filename.
-The script queries users, rules, appointment_types, and blocked_times tables,
+The script reads users, rules, appointment_types, and blocked_times,
 reconstructs the nested config structure, and saves it as JSON.
 
 Usage:
@@ -13,15 +13,19 @@ Usage:
 """
 
 import argparse
+import asyncio
 import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from core.db import get_db
+from core.appointments import AppointmentsService
+from core.db import init_db
 
 
-def export_config_from_db() -> dict[str, Any]:
+async def export_config_from_db(
+    database_path: str | Path = "db.sqlite3",
+) -> dict[str, Any]:
     """
     Export the current database state as a config.json structure.
 
@@ -29,26 +33,18 @@ def export_config_from_db() -> dict[str, Any]:
         dict: Configuration with nested users, rules, appointment_types
             and blocked_times
     """
-    db = get_db()
+    await init_db(database_path)
+    service = AppointmentsService(database_path)
 
     config = {"users": []}
 
-    # Fetch all users
-    users = list(db["users"].rows)
-
-    for user in users:
+    for user in await service.list_users():
         user_id = user["id"]
 
-        # Fetch related records for this user
-        rules = [row for row in db["rules"].rows if row.get("user") == user_id]
-        appointment_types = [
-            row for row in db["appointment_types"].rows if row.get("user") == user_id
-        ]
-        blocked_times = [
-            row for row in db["blocked_times"].rows if row.get("user") == user_id
-        ]
+        rules = await service.list_rules(user_id)
+        appointment_types = await service.list_appointment_types(user_id)
+        blocked_times = await service.list_blocked_time_rows(user_id)
 
-        # Build user object with nested structure
         user_obj = {
             "name": user.get("name"),
             "email": user.get("email"),
@@ -67,6 +63,7 @@ def export_config_from_db() -> dict[str, Any]:
 def backup_config(
     output_dir: Path | None = None,
     verbose: bool = False,
+    database_path: str | Path = "db.sqlite3",
 ) -> Path:
     """
     Create a timestamped backup of the config from the database.
@@ -74,6 +71,7 @@ def backup_config(
     Args:
         output_dir: Directory to save the backup file. Defaults to project root.
         verbose: Print detailed output.
+        database_path: Path to SQLite database file.
 
     Returns:
         Path: Path to the created backup file.
@@ -83,20 +81,16 @@ def backup_config(
     else:
         output_dir = Path(output_dir)
 
-    # Ensure output directory exists
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate timestamped filename
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     backup_file = output_dir / f"backups/config_backup_{timestamp}.json"
 
     if verbose:
         print("Exporting config from database...")
 
-    # Export config from database
-    config = export_config_from_db()
+    config = asyncio.run(export_config_from_db(database_path=database_path))
 
-    # Count statistics
     num_users = len(config.get("users", []))
     num_rules = sum(len(u.get("rules", [])) for u in config.get("users", []))
     num_types = sum(
@@ -110,7 +104,6 @@ def backup_config(
         print(f"  Appointment Types: {num_types}")
         print(f"  Blocked Times: {num_blocked}")
 
-    # Write to file
     backup_file.write_text(
         json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
     )
@@ -136,19 +129,29 @@ def main():
         help="Directory to save the backup file (default: project root)",
     )
     parser.add_argument(
+        "--database-path",
+        type=str,
+        default="db.sqlite3",
+        help="Path to the SQLite database file",
+    )
+    parser.add_argument(
         "--verbose", "-v", action="store_true", help="Print detailed output"
     )
 
     args = parser.parse_args()
 
     try:
-        backup_config(output_dir=args.output_dir, verbose=args.verbose)
-    except FileNotFoundError as e:
-        print(f"Error: Database file not found: {e}")
-        exit(1)
-    except Exception as e:
-        print(f"Error during backup: {e}")
-        exit(1)
+        backup_config(
+            output_dir=args.output_dir,
+            verbose=args.verbose,
+            database_path=args.database_path,
+        )
+    except FileNotFoundError as error:
+        print(f"Error: Database file not found: {error}")
+        raise SystemExit(1) from error
+    except Exception as error:
+        print(f"Error during backup: {error}")
+        raise SystemExit(1) from error
 
 
 if __name__ == "__main__":

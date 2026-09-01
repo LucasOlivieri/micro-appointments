@@ -2,12 +2,14 @@ import pytest
 
 import core.appointments as appointments_module
 from core.appointments import AppointmentsService, onaction
+from core.db import init_db
 
 
 @pytest.fixture
-def service(tmp_path):
+async def service(tmp_path):
+    await init_db(tmp_path / "testdb.sqlite3")
     service = AppointmentsService(tmp_path / "testdb.sqlite3")
-    service.db["users"].insert(
+    await service.create_user(
         {
             "id": "user-1",
             "name": "User",
@@ -25,14 +27,14 @@ def clear_action_handlers():
     appointments_module._ACTION_HANDLERS.clear()
 
 
-def test_create_returns_item_and_dispatches_created(service):
+async def test_create_returns_item_and_dispatches_created(service):
     received = []
 
     @onaction("created")
-    def sync_to_calendar(item):
+    async def sync_to_calendar(item):
         received.append(item)
 
-    created = service.create_blocked_time(
+    created = await service.create_blocked_time(
         {
             "user": "user-1",
             "reason": "booked",
@@ -50,8 +52,8 @@ def test_create_returns_item_and_dispatches_created(service):
     assert received == [created]
 
 
-def test_update_returns_item_and_dispatches_updated(service):
-    created = service.create_blocked_time(
+async def test_update_returns_item_and_dispatches_updated(service):
+    created = await service.create_blocked_time(
         {
             "user": "user-1",
             "reason": "booked",
@@ -63,10 +65,10 @@ def test_update_returns_item_and_dispatches_updated(service):
     received = []
 
     @onaction("updated")
-    def sync_update(item):
+    async def sync_update(item):
         received.append(item)
 
-    updated = service.update_blocked_time(
+    updated = await service.update_blocked_time(
         created["id"],
         {
             "reason": "rescheduled",

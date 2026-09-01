@@ -3,9 +3,10 @@ from fastapi.testclient import TestClient
 
 from api.main import create_app
 from core.appointments import AppointmentsService
+from core.db import init_db
 
 
-def test_available_appointment_types_are_listed_for_user(api):
+async def test_available_appointment_types_are_listed_for_user(api):
     response = api.get("/appointments/available-types", params={"user_id": API_USER_ID})
 
     assert response.status_code == 200
@@ -15,15 +16,16 @@ def test_available_appointment_types_are_listed_for_user(api):
     ]
 
 
-def test_available_appointment_types_require_existing_user(api):
+async def test_available_appointment_types_require_existing_user(api):
     response = api.get("/appointments/available-types", params={"user_id": "missing"})
 
     assert response.status_code == 404
 
 
-def test_users_lists_calendar_users(api, tmp_path):
+async def test_users_lists_calendar_users(api, tmp_path):
+    await init_db(tmp_path / "api.sqlite3")
     service = AppointmentsService(tmp_path / "api.sqlite3")
-    service.db["users"].insert(
+    await service.create_user(
         {
             "id": "another-user",
             "name": "Another User",
@@ -55,14 +57,17 @@ def test_users_lists_calendar_users(api, tmp_path):
     assert [user["name"] for user in users] == sorted(user["name"] for user in users)
 
 
-def test_agent_websocket_infers_single_user_when_user_id_missing(tmp_path, monkeypatch):
+async def test_agent_websocket_infers_single_user_when_user_id_missing(
+    tmp_path, monkeypatch
+):
     monkeypatch.setattr(
         "core.migrations.load_config", lambda *args, **kwargs: {"users": []}
     )
 
     path = tmp_path / "single-user.sqlite3"
+    await init_db(path)
     service = AppointmentsService(path)
-    service.db["users"].insert(
+    await service.create_user(
         {
             "id": API_USER_ID,
             "name": "API User",
@@ -91,7 +96,7 @@ def test_agent_websocket_infers_single_user_when_user_id_missing(tmp_path, monke
     assert data == {"response": "Here are your appointments."}
 
 
-def test_agent_websocket_runs_like_notebook_client(api, monkeypatch):
+async def test_agent_websocket_runs_like_notebook_client(api, monkeypatch):
     async def fake_run_agent(prompt, conversation_id):
         assert "User ID: api-user" in prompt
         assert "Show me my appointments" in prompt

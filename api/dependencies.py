@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlite_utils.db import NotFoundError
 
 from core.appointments import AppointmentsService
 from core.main import load_user
@@ -14,10 +13,10 @@ def _not_found(detail: str):
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
-def _load_user_or_404(user_id: str, database_path: Path) -> dict[str, Any]:  # type: ignore
+async def _load_user_or_404(user_id: str, database_path: Path) -> dict[str, Any]:  # type: ignore
     try:
-        return load_user(user_id, database_path=database_path)
-    except KeyError, NotFoundError, TypeError:
+        return await load_user(user_id, database_path=database_path)
+    except KeyError, TypeError:
         _not_found(f"User not found: {user_id}")
 
 

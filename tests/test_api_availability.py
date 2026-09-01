@@ -1,7 +1,7 @@
 from conftest import API_USER_ID
 
 
-def test_available_slots_respect_type_and_start_filter(api):
+async def test_available_slots_respect_type_and_start_filter(api):
     response = api.get(
         "/appointments/available-slots",
         params={
@@ -23,7 +23,7 @@ def test_available_slots_respect_type_and_start_filter(api):
     assert slots[1]["start"] == "2026-08-24T10:15:00-03:00"
 
 
-def test_available_slots_skip_booked_time_and_validate_type(api):
+async def test_available_slots_skip_booked_time_and_validate_type(api):
     api.post(
         "/appointments",
         json={

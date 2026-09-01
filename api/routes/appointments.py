@@ -28,14 +28,16 @@ def create_router(database_path: Path) -> APIRouter:
         summary="List appointments",
         description="List a user's appointments, optionally filtered by type.",
     )
-    def list_appointments(
+    async def list_appointments(
         user_id: str = Query(description="The user whose appointments to list"),
         appointment_type: str | None = Query(
             default=None, description="Case-insensitive appointment type filter"
         ),
     ):
-        _load_user_or_404(user_id, database_path)
-        return _service(database_path).list_appointments(user_id, appointment_type)
+        await _load_user_or_404(user_id, database_path)
+        return await _service(database_path).list_appointments(
+            user_id, appointment_type
+        )
 
     @router.get(
         "/appointments/available-slots",
@@ -46,7 +48,7 @@ def create_router(database_path: Path) -> APIRouter:
             "Results respect the user's timezone, working hours, and blocked times."
         ),
     )
-    def available_slots(
+    async def available_slots(
         user_id: Annotated[
             str,
             Query(description="The user whose calendar to search"),
@@ -73,7 +75,7 @@ def create_router(database_path: Path) -> APIRouter:
             ),
         ] = None,
     ):
-        user = _load_user_or_404(user_id, database_path)
+        user = await _load_user_or_404(user_id, database_path)
         try:
             return get_next_free_slots(
                 user,
@@ -91,10 +93,10 @@ def create_router(database_path: Path) -> APIRouter:
         summary="Create an appointment",
         description="Create an appointment after checking type, hours, and conflicts.",
     )
-    def create_appointment(payload: AppointmentCreate):
-        user = _load_user_or_404(payload.user_id, database_path)
+    async def create_appointment(payload: AppointmentCreate):
+        user = await _load_user_or_404(payload.user_id, database_path)
         try:
-            booking = book_appointment(
+            booking = await book_appointment(
                 user,
                 payload.appointment_type,
                 payload.start,
@@ -113,12 +115,14 @@ def create_router(database_path: Path) -> APIRouter:
         response_model=Appointment,
         summary="Get an appointment",
     )
-    def get_appointment(
+    async def get_appointment(
         appointment_id: int,
         user_id: str = Query(description="The owner of the appointment"),
     ):
-        _load_user_or_404(user_id, database_path)
-        appointment = _service(database_path).get_appointment(user_id, appointment_id)
+        await _load_user_or_404(user_id, database_path)
+        appointment = await _service(database_path).get_appointment(
+            user_id, appointment_id
+        )
         if appointment is None:
             _not_found(f"Appointment not found: {appointment_id}")
         return appointment
@@ -129,10 +133,10 @@ def create_router(database_path: Path) -> APIRouter:
         summary="Reschedule an appointment",
         description="Change an appointment's start or type.",
     )
-    def update_appointment(appointment_id: int, payload: AppointmentUpdate):
-        user = _load_user_or_404(payload.user_id, database_path)
+    async def update_appointment(appointment_id: int, payload: AppointmentUpdate):
+        user = await _load_user_or_404(payload.user_id, database_path)
         service = _service(database_path)
-        existing = service.get_appointment(payload.user_id, appointment_id)
+        existing = await service.get_appointment(payload.user_id, appointment_id)
         if existing is None:
             _not_found(f"Appointment not found: {appointment_id}")
         if payload.start is None and payload.appointment_type is None:
@@ -149,7 +153,7 @@ def create_router(database_path: Path) -> APIRouter:
         appointment_type = payload.appointment_type or existing["appointment_type"]
         start = payload.start or datetime.fromisoformat(existing["start"])
         try:
-            replacement = book_appointment(
+            replacement = await book_appointment(
                 user,
                 appointment_type,
                 start,
@@ -162,7 +166,7 @@ def create_router(database_path: Path) -> APIRouter:
             message = str(error)
             code = status.HTTP_409_CONFLICT if "already blocked" in message else 422
             raise HTTPException(status_code=code, detail=message) from error
-        service.delete_appointment(payload.user_id, appointment_id)
+        await service.delete_appointment(payload.user_id, appointment_id)
         return _response_appointment(replacement, payload.user_id)
 
     @router.delete(
@@ -172,12 +176,14 @@ def create_router(database_path: Path) -> APIRouter:
         description="Permanently remove an appointment belonging "
         "to the specified user.",
     )
-    def delete_appointment(
+    async def delete_appointment(
         appointment_id: int,
         user_id: str = Query(description="The owner of the appointment"),
     ):
-        _load_user_or_404(user_id, database_path)
-        deleted = _service(database_path).delete_appointment(user_id, appointment_id)
+        await _load_user_or_404(user_id, database_path)
+        deleted = await _service(database_path).delete_appointment(
+            user_id, appointment_id
+        )
         if deleted is None:
             _not_found(f"Appointment not found: {appointment_id}")
         return deleted

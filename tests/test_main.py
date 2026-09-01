@@ -4,9 +4,10 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
-import sqlite_utils
 
 import core.main as main_module
+from core.appointments import AppointmentsService
+from core.db import init_db
 from core.main import (
     book_appointment,
     get_appointment_type,
@@ -42,8 +43,30 @@ def user():
 
 
 @pytest.fixture(autouse=True)
-def isolated_database(tmp_path, monkeypatch):
+async def isolated_database(tmp_path, monkeypatch):
     monkeypatch.setattr(main_module, "DATABASE_PATH", tmp_path / "testdb.sqlite3")
+    await init_db(tmp_path / "testdb.sqlite3")
+
+
+async def test_init_db_enables_global_fallback(monkeypatch):
+    captured = {}
+
+    async def fake_init(*args, **kwargs):
+        captured["kwargs"] = kwargs
+
+    async def fake_apply_migrations():
+        pass
+
+    async def fake_sync_config_to_db():
+        pass
+
+    monkeypatch.setattr("core.db.Tortoise.init", fake_init)
+    monkeypatch.setattr("core.db.apply_migrations", fake_apply_migrations)
+    monkeypatch.setattr("core.db.sync_config_to_db", fake_sync_config_to_db)
+
+    await init_db("test-db.sqlite3")
+
+    assert captured["kwargs"]["_enable_global_fallback"] is True
 
 
 TZ = ZoneInfo("America/Argentina/Buenos_Aires")
@@ -464,8 +487,8 @@ class TestGetNextFreeSlots:
 class TestBookAppointment:
     __test__ = False
 
-    def test_book_successfully(self, user):
-        booking = book_appointment(
+    async def test_book_successfully(self, user):
+        booking = await book_appointment(
             user,
             "Follow-up",
             "2026-08-24T10:00:00-03:00",
@@ -476,7 +499,7 @@ class TestBookAppointment:
         assert booking["appointment_type"] == "Follow-up"
         assert len(user["blocked_time"]) == 1
 
-    def test_book_appends_to_blocked_time(self, user):
+    async def test_book_appends_to_blocked_time(self, user):
         user["blocked_time"] = [
             {
                 "start": "2026-08-24T09:00:00-03:00",
@@ -484,136 +507,131 @@ class TestBookAppointment:
                 "reason": "existing",
             }
         ]
-        book_appointment(user, "Follow-up", "2026-08-24T11:00:00-03:00")
+        await book_appointment(user, "Follow-up", "2026-08-24T11:00:00-03:00")
         assert len(user["blocked_time"]) == 2
 
-    def test_book_with_datetime_object(self, user):
+    async def test_book_with_datetime_object(self, user):
         dt = datetime(2026, 8, 24, 14, 0, tzinfo=TZ)
-        booking = book_appointment(user, "Follow-up", dt)
+        booking = await book_appointment(user, "Follow-up", dt)
         assert booking["start"] == "2026-08-24T14:00:00-03:00"
 
-    def test_book_with_naive_datetime_gets_tz(self, user):
+    async def test_book_with_naive_datetime_gets_tz(self, user):
         naive = datetime(2026, 8, 24, 14, 0)
-        booking = book_appointment(user, "Follow-up", naive)
+        booking = await book_appointment(user, "Follow-up", naive)
         start = datetime.fromisoformat(booking["start"])
         assert start.tzinfo is not None
 
-    def test_outside_working_hours_too_early(self, user):
+    async def test_outside_working_hours_too_early(self, user):
         with pytest.raises(ValueError, match="Appointment is outside working hours"):
-            book_appointment(
+            await book_appointment(
                 user,
                 "Follow-up",
                 "2026-08-24T08:00:00-03:00",
             )
 
-    def test_outside_working_hours_too_late(self, user):
+    async def test_outside_working_hours_too_late(self, user):
         with pytest.raises(ValueError, match="Appointment is outside working hours"):
-            book_appointment(
+            await book_appointment(
                 user,
                 "Follow-up",
                 "2026-08-24T17:00:00-03:00",
             )
 
-    def test_outside_working_hours_ends_late(self, user):
+    async def test_outside_working_hours_ends_late(self, user):
         """Starts at 16:50 but a 15 min slot ends at 17:05 -> outside."""
         with pytest.raises(ValueError, match="Appointment is outside working hours"):
-            book_appointment(
+            await book_appointment(
                 user,
                 "Follow-up",
                 "2026-08-24T16:50:00-03:00",
             )
 
-    def test_no_working_hours_that_day(self, user):
+    async def test_no_working_hours_that_day(self, user):
         # Sunday
         with pytest.raises(ValueError, match="No working hours on this day"):
-            book_appointment(
+            await book_appointment(
                 user,
                 "Follow-up",
                 "2026-08-30T10:00:00-03:00",
             )
 
-    def test_double_booking_raises_error(self, user):
-        book_appointment(
+    async def test_double_booking_raises_error(self, user):
+        await book_appointment(
             user,
             "Follow-up",
             "2026-08-24T10:00:00-03:00",
         )
         with pytest.raises(ValueError, match="Time slot is already blocked"):
-            book_appointment(
+            await book_appointment(
                 user,
                 "Follow-up",
                 "2026-08-24T10:00:00-03:00",
             )
 
-    def test_overlapping_booking_raises_error(self, user):
+    async def test_overlapping_booking_raises_error(self, user):
         """An overlapping slot should also be considered blocked."""
-        book_appointment(
+        await book_appointment(
             user,
             "Initial Consultation",
             "2026-08-24T10:00:00-03:00",
         )
         with pytest.raises(ValueError, match="Time slot is already blocked"):
-            book_appointment(
+            await book_appointment(
                 user,
                 "Follow-up",
                 "2026-08-24T10:15:00-03:00",
             )
 
-    def test_unknown_appointment_type(self, user):
+    async def test_unknown_appointment_type(self, user):
         with pytest.raises(ValueError, match="Unknown appointment type"):
-            book_appointment(
+            await book_appointment(
                 user,
                 "Nope",
                 "2026-08-24T10:00:00-03:00",
             )
 
-    def test_returns_correct_duration_for_different_types(self, user):
-        booking = book_appointment(
+    async def test_returns_correct_duration_for_different_types(self, user):
+        booking = await book_appointment(
             user,
             "Initial Consultation",
             "2026-08-24T10:00:00-03:00",
         )
         assert booking["end"] == "2026-08-24T10:30:00-03:00"
 
-    def test_blocked_by_date_range_raises(self, user):
+    async def test_blocked_by_date_range_raises(self, user):
         user["blocked_time"] = [{"start_date": "2026-08-01", "end_date": "2026-08-31"}]
         with pytest.raises(ValueError, match="Time slot is already blocked"):
-            book_appointment(
+            await book_appointment(
                 user,
                 "Follow-up",
                 "2026-08-24T10:00:00-03:00",
             )
 
-    def test_booking_is_persisted(self, user):
-        book_appointment(
+    async def test_booking_is_persisted(self, user):
+        await book_appointment(
             user,
             "Follow-up",
             "2026-08-24T10:00:00-03:00",
         )
 
-        db = sqlite_utils.Database(main_module.DATABASE_PATH)
-        rows = list(
-            db.query(
-                "SELECT user, reason, start, end, "
-                "appointment_type FROM blocked_times "
-                "WHERE user = :user_id AND reason = 'booked'",
-                {"user_id": user["id"]},
-            )
-        )
+        service = AppointmentsService(main_module.DATABASE_PATH)
+        rows = await service.list_appointments(user["id"])
         assert rows == [
             {
+                "id": rows[0]["id"],
                 "user": user["id"],
                 "reason": "booked",
                 "start": "2026-08-24T10:00:00-03:00",
                 "end": "2026-08-24T10:15:00-03:00",
                 "appointment_type": "Follow-up",
+                "name": None,
+                "phone": None,
             }
         ]
 
-    def test_reloaded_user_sees_persisted_booking(self, user):
-        main_module.AppointmentsService(main_module.DATABASE_PATH)
-        db = sqlite_utils.Database(main_module.DATABASE_PATH)
-        db["users"].upsert(
+    async def test_reloaded_user_sees_persisted_booking(self, user):
+        service = AppointmentsService(main_module.DATABASE_PATH)
+        await service.upsert_user(
             {
                 "id": user["id"],
                 "name": "User",
@@ -621,35 +639,31 @@ class TestBookAppointment:
                 "timezone": user["timezone"],
             }
         )
-        db["rules"].insert_all(
-            [
+        for index, rule in enumerate(user["rules"]):
+            await service.create_rule(
                 {
                     "id": index + 101,
-                    "user": user["id"],
+                    "user_id": user["id"],
                     "weekday": rule["weekday"],
                     "start": rule["start"],
                     "end": rule["end"],
                 }
-                for index, rule in enumerate(user["rules"])
-            ]
-        )
-        db["appointment_types"].insert_all(
-            [
+            )
+        for index, appointment_type in enumerate(user["appointment_types"]):
+            await service.create_appointment_type(
                 {
                     "id": index + 101,
-                    "user": user["id"],
+                    "user_id": user["id"],
                     **appointment_type,
                 }
-                for index, appointment_type in enumerate(user["appointment_types"])
-            ]
-        )
-        book_appointment(
+            )
+        await book_appointment(
             user,
             "Follow-up",
             "2026-08-24T10:00:00-03:00",
         )
 
-        reloaded_user = load_user(user["id"])
+        reloaded_user = await load_user(user["id"])
 
         assert reloaded_user["blocked_time"][-1] == {
             "reason": "booked",
@@ -658,17 +672,16 @@ class TestBookAppointment:
             "appointment_type": "Follow-up",
         }
         with pytest.raises(ValueError, match="Time slot is already blocked"):
-            book_appointment(
+            await book_appointment(
                 reloaded_user,
                 "Follow-up",
                 "2026-08-24T10:00:00-03:00",
             )
 
-    def test_bookings_are_isolated_by_user(self, user):
+    async def test_bookings_are_isolated_by_user(self, user):
         second_user_id = "second-user"
-        main_module.AppointmentsService(main_module.DATABASE_PATH)
-        db = sqlite_utils.Database(main_module.DATABASE_PATH)
-        db["users"].insert(
+        service = AppointmentsService(main_module.DATABASE_PATH)
+        await service.create_user(
             {
                 "id": second_user_id,
                 "name": "Second User",
@@ -676,33 +689,33 @@ class TestBookAppointment:
                 "timezone": user["timezone"],
             }
         )
-        db["rules"].insert(
+        await service.create_rule(
             {
                 "id": 101,
-                "user": second_user_id,
+                "user_id": second_user_id,
                 "weekday": 0,
                 "start": "09:00",
                 "end": "17:00",
             }
         )
-        db["appointment_types"].insert(
+        await service.create_appointment_type(
             {
                 "id": 101,
-                "user": second_user_id,
+                "user_id": second_user_id,
                 "name": "Follow-up",
                 "duration_minutes": 15,
             }
         )
 
-        book_appointment(
+        await book_appointment(
             user,
             "Follow-up",
             "2026-08-24T10:00:00-03:00",
         )
-        second_user = load_user(second_user_id)
+        second_user = await load_user(second_user_id)
 
         assert second_user["blocked_time"] == []
-        booking = book_appointment(
+        booking = await book_appointment(
             second_user,
             "Follow-up",
             "2026-08-24T10:00:00-03:00",

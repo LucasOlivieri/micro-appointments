@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from api.main import create_app
 from core.appointments import AppointmentsService
+from core.db import init_db
 
 API_USER_ID = "api-user"
 API_TIMEZONE = "America/Argentina/Buenos_Aires"
@@ -25,9 +26,10 @@ def user():
     }
 
 
-def seed_api_database(path):
+async def seed_api_database(path):
+    await init_db(path)
     service = AppointmentsService(path)
-    service.db["users"].insert(
+    await service.create_user(
         {
             "id": API_USER_ID,
             "name": "API User",
@@ -36,24 +38,24 @@ def seed_api_database(path):
         }
     )
     for weekday in range(5):
-        service.db["rules"].insert(
+        await service.create_rule(
             {
-                "user": API_USER_ID,
+                "user_id": API_USER_ID,
                 "weekday": weekday,
                 "start": "09:00",
                 "end": "17:00",
             }
         )
-    service.db["appointment_types"].insert(
+    await service.create_appointment_type(
         {
-            "user": API_USER_ID,
+            "user_id": API_USER_ID,
             "name": "Follow-up",
             "duration_minutes": 15,
         }
     )
-    service.db["appointment_types"].insert(
+    await service.create_appointment_type(
         {
-            "user": API_USER_ID,
+            "user_id": API_USER_ID,
             "name": "Initial Consultation",
             "duration_minutes": 30,
         }
@@ -61,7 +63,7 @@ def seed_api_database(path):
 
 
 @pytest.fixture
-def api(tmp_path):
+async def api(tmp_path):
     path = tmp_path / "api.sqlite3"
-    seed_api_database(path)
+    await seed_api_database(path)
     return TestClient(create_app(path))

@@ -8,7 +8,7 @@ from .recurrence import rule_applies_on
 DATABASE_PATH = Path(__file__).resolve().parent.parent / "db.sqlite3"
 
 
-def _database_blocked_times(
+async def _database_blocked_times(
     user_id,
     bookings_only=False,
     database_path=None,
@@ -16,37 +16,27 @@ def _database_blocked_times(
     if database_path is None:
         database_path = DATABASE_PATH
     service = AppointmentsService(database_path)
-    return service.list_blocked_times(user_id, bookings_only)
+    return await service.list_blocked_times(user_id, bookings_only)
 
 
-def load_user(user_id, database_path=None):
+async def load_user(user_id, database_path=None):
     """Load a user and its scheduling data from SQLite."""
     if database_path is None:
         database_path = DATABASE_PATH
     service = AppointmentsService(database_path)
-    user = service.db["users"].get(user_id)
-    user["rules"] = list(
-        service.db.query(
-            "SELECT id, user, weekday, start, end, rrule, dtstart, exclude_dates "
-            "FROM rules WHERE user = :user_id ORDER BY id",
-            {"user_id": user_id},
-        )
-    )
-    user["appointment_types"] = list(
-        service.db.query(
-            "SELECT id, user, name, duration_minutes "
-            "FROM appointment_types WHERE user = :user_id ORDER BY id",
-            {"user_id": user_id},
-        )
-    )
-    user["blocked_time"] = _database_blocked_times(
+    user = await service.get_user(user_id)
+    if user is None:
+        raise KeyError(user_id)
+    user["rules"] = await service.list_rules(user_id)
+    user["appointment_types"] = await service.list_appointment_types(user_id)
+    user["blocked_time"] = await _database_blocked_times(
         user_id,
         database_path=database_path,
     )
     return user
 
 
-def _refresh_database_blocked_times(
+async def _refresh_database_blocked_times(
     user,
     database_path=None,
     exclude_start=None,
@@ -61,7 +51,7 @@ def _refresh_database_blocked_times(
                 block.get("reason") == "booked" and "start" in block and "end" in block
             )
         ]
-        bookings = _database_blocked_times(
+        bookings = await _database_blocked_times(
             user["id"],
             bookings_only=True,
             database_path=database_path,
@@ -199,7 +189,7 @@ def get_next_free_slots(
     return slots
 
 
-def book_appointment(
+async def book_appointment(
     user,
     appointment_type,
     start,
@@ -228,7 +218,7 @@ def book_appointment(
 
     end = start + duration
 
-    _refresh_database_blocked_times(user, database_path, exclude_start)
+    await _refresh_database_blocked_times(user, database_path, exclude_start)
 
     # Must be inside working hours
     working_hours = get_working_hours(user, start.date())
@@ -265,34 +255,15 @@ def book_appointment(
     service = AppointmentsService(database_path)
     customer_id = None
     if customer_name is not None:
-        customer = next(
-            service.db.query(
-                "SELECT id FROM customer WHERE phone = :phone",
-                {"phone": customer_phone.strip()},
-            ),
-            None,
-        )
         customer_phone = customer_phone.strip()
         customer_name = customer_name.strip()
-        if customer is None:
-            service.db["customer"].insert(
-                {
-                    "id": customer_phone,
-                    "phone": customer_phone,
-                    "name": customer_name,
-                }
-            )
-        else:
-            service.db.execute(
-                "UPDATE customer SET id = :id, name = :name WHERE phone = :phone",
-                {
-                    "id": customer_phone,
-                    "name": customer_name,
-                    "phone": customer_phone,
-                },
-            )
+        await service.upsert_customer(
+            customer_id=customer_phone,
+            phone=customer_phone,
+            name=customer_name,
+        )
         customer_id = customer_phone
-    created = service.create_blocked_time(
+    created = await service.create_blocked_time(
         {
             "user": user["id"],
             "reason": booking["reason"],

@@ -15,41 +15,28 @@ def create_router(database_path: Path) -> APIRouter:
         summary="List users",
         description="List users whose calendars can be searched or booked.",
     )
-    def list_users():
+    async def list_users():
         service = _service(database_path)
-        rows = list(service.db.query("""
-            SELECT
-                u.id,
-                u.name,
-                u.timezone,
-                at.name AS appointment_type_name,
-                at.duration_minutes
-            FROM users u
-            LEFT JOIN appointment_types at ON at.user = u.id
-            ORDER BY u.name, u.id, at.id
-            """))
-
-        users_by_id: dict[str, dict] = {}
-        for row in rows:
-            user_id = row["id"]
-            user = users_by_id.setdefault(
-                user_id,
+        users = await service.list_users()
+        response = []
+        for user in users:
+            appointment_types = await service.list_appointment_types(user["id"])
+            response.append(
                 {
-                    "id": row["id"],
-                    "name": row["name"],
-                    "timezone": row["timezone"],
-                    "available_appointment_types": [],
-                },
+                    "id": user["id"],
+                    "name": user["name"],
+                    "timezone": user["timezone"],
+                    "available_appointment_types": [
+                        {
+                            "name": appointment_type["name"],
+                            "duration_minutes": appointment_type["duration_minutes"],
+                        }
+                        for appointment_type in appointment_types
+                    ],
+                }
             )
-            if row["appointment_type_name"] is not None:
-                user["available_appointment_types"].append(
-                    {
-                        "name": row["appointment_type_name"],
-                        "duration_minutes": row["duration_minutes"],
-                    }
-                )
 
-        return list(users_by_id.values())
+        return response
 
     @router.get(
         "/appointments/available-types",
@@ -57,10 +44,10 @@ def create_router(database_path: Path) -> APIRouter:
         summary="List available appointment types",
         description="List the appointment types configured for a user's calendar.",
     )
-    def available_appointment_types(
+    async def available_appointment_types(
         user_id: str = Query(description="The user whose appointment types to list"),
     ):
-        user = _load_user_or_404(user_id, database_path)
+        user = await _load_user_or_404(user_id, database_path)
         return [
             {
                 "name": appointment_type["name"],

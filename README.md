@@ -1,6 +1,6 @@
 # Micro Appointments
 
-A small scheduling app for managing doctors or staff calendars, appointment types, and booked availability. It uses SQLite as the persistence layer, a FastAPI API for interacting with the calendar, and configuration-driven user setup.
+A small scheduling app for managing doctors or staff calendars, appointment types, and booked availability. It uses SQLite via Tortoise ORM as the persistence layer, a FastAPI API for interacting with the calendar, and configuration-driven user setup.
 
 [![CI/CD](https://github.com/LucasOlivieri/micro-appointments/actions/workflows/ci.yml/badge.svg)](https://github.com/LucasOlivieri/micro-appointments/actions/workflows/ci.yml)
 
@@ -103,7 +103,7 @@ Backups include all users, rules, appointment types, and blocked times in the sa
 
 ## Database setup
 
-The app initializes SQLite via `core/db.py`. On startup it applies migrations and then syncs data from `config.json` into the database tables.
+The app initializes SQLite via Tortoise ORM in `core/db.py`. On startup it applies project-managed SQL migrations (without Aerich) and then syncs data from `config.json` into the database tables.
 
 This keeps the database aligned with the current configuration file without requiring manual SQL updates.
 

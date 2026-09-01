@@ -20,7 +20,7 @@ dependencies = [
     "python-dateutil>=2.9.0",
     "python-dotenv>=1.0.0",
     "questionary>=2.1.0",
-    "sqlite-utils>=4.2.1",
+    "tortoise-orm>=0.25.1",
     "typer==0.27.1",
     "tzlocal>=5.0",
     "uvicorn>=0.30.0",
@@ -37,11 +37,16 @@ test = [
     "ipykernel>=7.1.0",
     "jupyter>=1.1.1",
     "pytest>=9.1.1",
+    "pytest-asyncio>=0.25.0",
     "gradio>=5.0.0",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::tortoise.warnings.TortoiseLoopSwitchWarning",
+]
 
 [tool.uv]
 package = false

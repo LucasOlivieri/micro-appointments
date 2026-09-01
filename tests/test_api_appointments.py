@@ -1,6 +1,7 @@
 from conftest import API_USER_ID
 
 from core.appointments import AppointmentsService
+from core.db import init_db
 
 
 def appointment_payload(appointment_type="Follow-up", name="Ada Lovelace"):
@@ -13,7 +14,7 @@ def appointment_payload(appointment_type="Follow-up", name="Ada Lovelace"):
     }
 
 
-def test_create_and_list_appointment(api):
+async def test_create_and_list_appointment(api):
     response = api.post("/appointments", json=appointment_payload("follow-up"))
 
     assert response.status_code == 201
@@ -27,10 +28,11 @@ def test_create_and_list_appointment(api):
     ]
 
 
-def test_list_filter_is_case_insensitive_and_excludes_blocks(api, tmp_path):
+async def test_list_filter_is_case_insensitive_and_excludes_blocks(api, tmp_path):
     api.post("/appointments", json=appointment_payload())
+    await init_db(tmp_path / "api.sqlite3")
     service = AppointmentsService(tmp_path / "api.sqlite3")
-    service.create_blocked_time(
+    await service.create_blocked_time(
         {
             "user": API_USER_ID,
             "reason": "vacation",
@@ -51,7 +53,7 @@ def test_list_filter_is_case_insensitive_and_excludes_blocks(api, tmp_path):
     assert response.json()[0]["reason"] == "booked"
 
 
-def test_create_reports_conflicts_and_unknown_types(api):
+async def test_create_reports_conflicts_and_unknown_types(api):
     payload = appointment_payload()
     assert api.post("/appointments", json=payload).status_code == 201
     assert api.post("/appointments", json=payload).status_code == 409
@@ -59,7 +61,7 @@ def test_create_reports_conflicts_and_unknown_types(api):
     assert api.post("/appointments", json=payload).status_code == 422
 
 
-def test_get_and_delete_enforce_ownership(api):
+async def test_get_and_delete_enforce_ownership(api):
     created = api.post("/appointments", json=appointment_payload()).json()
     assert (
         api.get(
@@ -79,7 +81,7 @@ def test_get_and_delete_enforce_ownership(api):
     )
 
 
-def test_reschedule_revalidates_and_keeps_original_when_conflicting(api):
+async def test_reschedule_revalidates_and_keeps_original_when_conflicting(api):
     first = api.post("/appointments", json=appointment_payload()).json()
     second = appointment_payload(name="Grace Hopper")
     second["start"] = "2026-08-24T11:00:00-03:00"
@@ -101,7 +103,7 @@ def test_reschedule_revalidates_and_keeps_original_when_conflicting(api):
     )
 
 
-def test_reschedule_moves_to_a_free_slot(api):
+async def test_reschedule_moves_to_a_free_slot(api):
     first = api.post("/appointments", json=appointment_payload()).json()
     response = api.patch(
         f"/appointments/{first['id']}",
@@ -120,5 +122,5 @@ def test_reschedule_moves_to_a_free_slot(api):
     )
 
 
-def test_missing_user_is_not_created_implicitly(api):
+async def test_missing_user_is_not_created_implicitly(api):
     assert api.get("/appointments", params={"user_id": "missing"}).status_code == 404
