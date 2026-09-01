@@ -1,9 +1,6 @@
 from conftest import API_TIMEZONE, API_USER_ID
-from fastapi.testclient import TestClient
 
-from api.main import create_app
 from core.appointments import AppointmentsService
-from core.db import init_db
 
 
 async def test_available_appointment_types_are_listed_for_user(api):
@@ -22,17 +19,19 @@ async def test_available_appointment_types_require_existing_user(api):
     assert response.status_code == 404
 
 
-async def test_users_lists_calendar_users(api, tmp_path):
-    await init_db(tmp_path / "api.sqlite3")
-    service = AppointmentsService(tmp_path / "api.sqlite3")
-    await service.create_user(
-        {
-            "id": "another-user",
-            "name": "Another User",
-            "email": "another@example.com",
-            "timezone": "UTC",
-        }
-    )
+async def test_users_lists_calendar_users(api):
+    async def create_user():
+        service = AppointmentsService("api.sqlite3")
+        await service.create_user(
+            {
+                "id": "another-user",
+                "name": "Another User",
+                "email": "another@example.com",
+                "timezone": "UTC",
+            }
+        )
+
+    api.portal.call(create_user)
 
     response = api.get("/users")
 
@@ -58,33 +57,24 @@ async def test_users_lists_calendar_users(api, tmp_path):
 
 
 async def test_agent_websocket_infers_single_user_when_user_id_missing(
-    tmp_path, monkeypatch
+    single_user_api, monkeypatch
 ):
-    monkeypatch.setattr(
-        "core.migrations.load_config", lambda *args, **kwargs: {"users": []}
-    )
-
-    path = tmp_path / "single-user.sqlite3"
-    await init_db(path)
-    service = AppointmentsService(path)
-    await service.create_user(
-        {
-            "id": API_USER_ID,
-            "name": "API User",
-            "email": "api@example.com",
-            "timezone": API_TIMEZONE,
-        }
-    )
-
     async def fake_run_agent(prompt, conversation_id):
         assert "User ID: api-user" in prompt
         assert "Show me my appointments" in prompt
         assert conversation_id == "ws-session"
         return "Here are your appointments."
 
+    async def mock_resolve_user_id(database_path, user_id):
+        return API_USER_ID
+
+    monkeypatch.setattr(
+        "api.routes.agent._resolve_user_id",
+        mock_resolve_user_id,
+    )
     monkeypatch.setattr("api.routes.agent.run_agent", fake_run_agent)
 
-    with TestClient(create_app(path)).websocket_connect("/ws/agent") as websocket:
+    with single_user_api.websocket_connect("/ws/agent") as websocket:
         websocket.send_json(
             {
                 "message": "Show me my appointments",

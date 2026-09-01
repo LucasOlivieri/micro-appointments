@@ -62,8 +62,65 @@ async def seed_api_database(path):
     )
 
 
+async def seed_api_data(path):
+    service = AppointmentsService(path)
+    await service.create_user(
+        {
+            "id": API_USER_ID,
+            "name": "API User",
+            "email": "api@example.com",
+            "timezone": API_TIMEZONE,
+        }
+    )
+    for weekday in range(5):
+        await service.create_rule(
+            {
+                "user_id": API_USER_ID,
+                "weekday": weekday,
+                "start": "09:00",
+                "end": "17:00",
+            }
+        )
+    await service.create_appointment_type(
+        {
+            "user_id": API_USER_ID,
+            "name": "Follow-up",
+            "duration_minutes": 15,
+        }
+    )
+    await service.create_appointment_type(
+        {
+            "user_id": API_USER_ID,
+            "name": "Initial Consultation",
+            "duration_minutes": 30,
+        }
+    )
+
+
+async def seed_single_user(path):
+    service = AppointmentsService(path)
+
+    await service.create_user(
+        {
+            "id": API_USER_ID,
+            "name": "API User",
+            "email": "api@example.com",
+            "timezone": API_TIMEZONE,
+        }
+    )
+
+
 @pytest.fixture
-async def api(tmp_path):
+def single_user_api(tmp_path):
+    path = tmp_path / "single-user.sqlite3"
+    app = create_app(path, on_startup=seed_single_user)
+    with TestClient(app) as client:
+        yield client
+
+
+@pytest.fixture
+def api(tmp_path):
     path = tmp_path / "api.sqlite3"
-    await seed_api_database(path)
-    return TestClient(create_app(path))
+    app = create_app(path, on_startup=seed_api_data)
+    with TestClient(app) as client:
+        yield client

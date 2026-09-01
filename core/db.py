@@ -5,7 +5,7 @@ from tortoise import Tortoise
 from core.migrations import apply_migrations, sync_config_to_db
 
 
-async def init_db(path: str | Path = "db.sqlite3") -> None:
+async def init_db(path: str | Path = "db.sqlite3", sync_config: bool = True) -> None:
     normalized_path = str(Path(path))
 
     if Tortoise._inited:  # type: ignore[attr-defined]
@@ -17,7 +17,8 @@ async def init_db(path: str | Path = "db.sqlite3") -> None:
         _enable_global_fallback=True,
     )
     await apply_migrations()
-    await sync_config_to_db()
+    if sync_config:
+        await sync_config_to_db()
 
 
 async def close_db() -> None:

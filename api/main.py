@@ -20,12 +20,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def create_app(database_path: str | Path = DEFAULT_DATABASE_PATH) -> FastAPI:
+def create_app(
+    database_path: str | Path = DEFAULT_DATABASE_PATH, on_startup=None
+) -> FastAPI:
     database_path = Path(database_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await init_db(database_path)
+        if on_startup:
+            await on_startup(database_path)
         configured: list[Integration] = IntegrationFactory.create_configured()
         app.state.integrations = configured
         for integration in configured:
