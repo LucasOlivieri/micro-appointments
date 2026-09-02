@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from tortoise import Model
+
 
 class BaseRepository:
-    model = None
+    model: type[Model] | None = None
 
     async def create(self, **payload):
         if self.model is None:
