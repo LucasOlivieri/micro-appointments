@@ -1,6 +1,6 @@
 from conftest import API_USER_ID
 
-from core.appointments import AppointmentsService
+from core.services.appointments import AppointmentsService
 
 
 def appointment_payload(appointment_type="Follow-up", name="Ada Lovelace"):

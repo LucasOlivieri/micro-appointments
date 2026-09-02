@@ -20,8 +20,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from core.appointments import CREATED, DELETED, UPDATED, onaction
 from core.models import BlockedTime, User
+from core.services.appointments import CREATED, DELETED, UPDATED, onaction
 from integrations.base import Integration
 from integrations.factory import IntegrationFactory
 

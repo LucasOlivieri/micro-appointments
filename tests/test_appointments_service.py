@@ -1,8 +1,9 @@
 import pytest
 
-import core.appointments as appointments_module
-from core.appointments import AppointmentsService, onaction
-from core.db import init_db
+import core.services.appointments as appointments_module
+from core.db import close_db, init_db
+from core.repositories import BlockedTimeRepository, UserRepository
+from core.services.appointments import AppointmentsService, onaction
 
 
 @pytest.fixture
@@ -17,7 +18,8 @@ async def service(tmp_path):
             "timezone": "America/Argentina/Buenos_Aires",
         }
     )
-    return service
+    yield service
+    await close_db()
 
 
 @pytest.fixture(autouse=True)
@@ -77,3 +79,9 @@ async def test_update_returns_item_and_dispatches_updated(service):
 
     assert updated["reason"] == "rescheduled"
     assert received == [updated]
+
+
+async def test_service_uses_model_repositories(service):
+    assert isinstance(service.users, UserRepository)
+    assert isinstance(service.blocked_times, BlockedTimeRepository)
+    assert await service.users.get_by_id("user-1") is not None

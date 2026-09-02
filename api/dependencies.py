@@ -3,8 +3,8 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from core.appointments import AppointmentsService
 from core.main import load_user
+from core.services.appointments import AppointmentsService
 
 DEFAULT_DATABASE_PATH = Path(__file__).resolve().parent.parent / "db.sqlite3"
 

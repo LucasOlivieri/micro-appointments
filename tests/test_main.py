@@ -6,8 +6,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 import core.main as main_module
-from core.appointments import AppointmentsService
-from core.db import init_db
+from core.db import close_db, init_db
 from core.main import (
     book_appointment,
     get_appointment_type,
@@ -16,6 +15,7 @@ from core.main import (
     is_blocked,
     load_user,
 )
+from core.services.appointments import AppointmentsService
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -46,6 +46,8 @@ def user():
 async def isolated_database(tmp_path, monkeypatch):
     monkeypatch.setattr(main_module, "DATABASE_PATH", tmp_path / "testdb.sqlite3")
     await init_db(tmp_path / "testdb.sqlite3")
+    yield
+    await close_db()
 
 
 async def test_init_db_enables_global_fallback(monkeypatch):

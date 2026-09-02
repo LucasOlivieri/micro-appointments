@@ -3,6 +3,7 @@ from test_main import TestBookAppointment
 from tortoise.contrib.test import tortoise_test_context
 
 import core.main as main_module
+from core.db import close_db
 from core.migrations import sync_config_to_db
 
 
@@ -17,6 +18,7 @@ async def isolated_database(tmp_path, monkeypatch):
     ):
         await sync_config_to_db()
         yield
+    await close_db()
 
 
 class TestBooking(TestBookAppointment):

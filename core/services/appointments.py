@@ -1,8 +1,11 @@
 from collections import defaultdict
 
-from tortoise.expressions import Q
-
-from .models import AppointmentType, BlockedTime, Customer, Rule, User
+from core.models import AppointmentType, BlockedTime, Rule, User
+from core.repositories.appointment_type import AppointmentTypeRepository
+from core.repositories.blocked_time import BlockedTimeRepository
+from core.repositories.customer import CustomerRepository
+from core.repositories.rule import RuleRepository
+from core.repositories.user import UserRepository
 
 CREATED = "created"
 UPDATED = "updated"
@@ -72,17 +75,30 @@ def _serialize_appointment_type(item: AppointmentType) -> dict:
 
 
 class AppointmentsService:
-    def __init__(self, path):
+    def __init__(
+        self,
+        path,
+        *,
+        users: UserRepository | None = None,
+        rules: RuleRepository | None = None,
+        appointment_types: AppointmentTypeRepository | None = None,
+        customers: CustomerRepository | None = None,
+        blocked_times: BlockedTimeRepository | None = None,
+    ):
         self.path = str(path)
+        self.users = users or UserRepository()
+        self.rules = rules or RuleRepository()
+        self.appointment_types = appointment_types or AppointmentTypeRepository()
+        self.customers = customers or CustomerRepository()
+        self.blocked_times = blocked_times or BlockedTimeRepository()
 
     async def list_blocked_times(self, user_id, bookings_only=False):
-        query = BlockedTime.filter(user_id=user_id)
-        if bookings_only:
-            query = query.filter(~Q(appointment_type=None))
-        query = query.order_by("start", "id")
+        rows = await self.blocked_times.list_for_user(
+            user_id, bookings_only=bookings_only
+        )
 
         blocked_times = []
-        for row in await query.all():
+        for row in rows:
             if row.appointment_type:
                 blocked_times.append(
                     {
@@ -103,7 +119,7 @@ class AppointmentsService:
         return blocked_times
 
     async def create_user(self, payload):
-        user = await User.create(**dict(payload))
+        user = await self.users.create(**dict(payload))
         return _serialize_user(user)
 
     async def upsert_user(self, payload):
@@ -114,43 +130,43 @@ class AppointmentsService:
             "email": body.get("email"),
             "timezone": body.get("timezone") or "America/Argentina/Buenos_Aires",
         }
-        user, _ = await User.update_or_create(id=user_id, defaults=defaults)
+        user, _ = await self.users.upsert(user_id, defaults)
         return _serialize_user(user)
 
     async def get_user(self, user_id):
-        user = await User.filter(id=user_id).first()
+        user = await self.users.get_by_id(user_id)
         if user is None:
             return None
         return _serialize_user(user)
 
     async def list_users(self):
-        rows = await User.all().order_by("name", "id")
+        rows = await self.users.list_all()
         return [_serialize_user(row) for row in rows]
 
     async def create_rule(self, payload):
         body = dict(payload)
         if "user" in body and "user_id" not in body:
             body["user_id"] = body.pop("user")
-        item = await Rule.create(**body)
+        item = await self.rules.create(**body)
         return _serialize_rule(item)
 
     async def list_rules(self, user_id):
-        rows = await Rule.filter(user_id=user_id).order_by("id")
+        rows = await self.rules.list_by_user(user_id)
         return [_serialize_rule(row) for row in rows]
 
     async def create_appointment_type(self, payload):
         body = dict(payload)
         if "user" in body and "user_id" not in body:
             body["user_id"] = body.pop("user")
-        item = await AppointmentType.create(**body)
+        item = await self.appointment_types.create(**body)
         return _serialize_appointment_type(item)
 
     async def list_appointment_types(self, user_id):
-        rows = await AppointmentType.filter(user_id=user_id).order_by("id")
+        rows = await self.appointment_types.list_by_user(user_id)
         return [_serialize_appointment_type(row) for row in rows]
 
     async def find_customer_by_phone(self, phone):
-        customer = await Customer.filter(phone=phone).first()
+        customer = await self.customers.get_by_phone(phone)
         if customer is None:
             return None
         return {
@@ -161,10 +177,7 @@ class AppointmentsService:
         }
 
     async def upsert_customer(self, customer_id, phone, name):
-        customer, _ = await Customer.update_or_create(
-            id=customer_id,
-            defaults={"phone": phone, "name": name},
-        )
+        customer, _ = await self.customers.upsert(customer_id, phone, name)
         return {
             "id": customer.id,
             "phone": customer.phone,
@@ -173,15 +186,15 @@ class AppointmentsService:
         }
 
     async def list_appointments(self, user_id, appointment_type=None):
-        query = BlockedTime.filter(user_id=user_id, reason="booked")
-        if appointment_type is not None:
-            query = query.filter(appointment_type__iexact=appointment_type)
-        rows = await query.order_by("start", "id")
+        rows = await self.blocked_times.list_booked_for_user(
+            user_id,
+            appointment_type=appointment_type,
+        )
 
         customer_ids = {row.customer for row in rows if row.customer}
         customers = {}
         if customer_ids:
-            for c in await Customer.filter(id__in=list(customer_ids)):
+            for c in await self.customers.list_by_ids(list(customer_ids)):
                 customers[c.id] = c
 
         appointments = []
@@ -202,15 +215,11 @@ class AppointmentsService:
         return appointments
 
     async def get_appointment(self, user_id, appointment_id):
-        row = await BlockedTime.filter(
-            id=appointment_id,
-            user_id=user_id,
-            reason="booked",
-        ).first()
+        row = await self.blocked_times.get_booked_by_user(user_id, appointment_id)
         if row is None:
             return None
 
-        c = await Customer.filter(id=row.customer).first() if row.customer else None
+        c = await self.customers.get_by_id(row.customer) if row.customer else None
         return {
             "id": row.id,
             "user": row.user_id,
@@ -228,7 +237,7 @@ class AppointmentsService:
         if appointment is None:
             return None
 
-        await BlockedTime.filter(id=appointment_id).delete()
+        await self.blocked_times.delete_by_id(appointment_id)
         await _dispatch(DELETED, appointment)
         return appointment
 
@@ -237,7 +246,7 @@ class AppointmentsService:
         if "user" in payload and "user_id" not in payload:
             payload["user_id"] = payload.pop("user")
 
-        created = await BlockedTime.create(**payload)
+        created = await self.blocked_times.create(**payload)
         result = _serialize_blocked_time(created)
         await _dispatch(CREATED, result)
         return result
@@ -247,12 +256,11 @@ class AppointmentsService:
         if "user" in payload and "user_id" not in payload:
             payload["user_id"] = payload.pop("user")
 
-        await BlockedTime.filter(id=item_id).update(**payload)
-        updated = await BlockedTime.get(id=item_id)
+        updated = await self.blocked_times.update(item_id, **payload)
         result = _serialize_blocked_time(updated)
         await _dispatch(UPDATED, result)
         return result
 
     async def list_blocked_time_rows(self, user_id):
-        rows = await BlockedTime.filter(user_id=user_id).order_by("id")
+        rows = await self.blocked_times.list_rows_for_user(user_id)
         return [_serialize_blocked_time(row) for row in rows]

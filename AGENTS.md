@@ -5,7 +5,9 @@ This repository contains a scheduling and appointment management service with a 
 
 ## Project overview
 - `api/`: FastAPI application and route layer.
-- `core/`: scheduling business logic, ORM models, migrations, config sync, and database bootstrap.
+- `core/`: scheduling business logic, ORM models, migrations, config sync, database bootstrap, service orchestration, and repository layer.
+- `core/appointments.py`: service layer for scheduling and appointment operations.
+- `core/repositories/`: one async repository per Tortoise model, plus a shared base abstraction.
 - `bot/`: local assistant/agent tooling and CLI entrypoints.
 - `integrations/`: Telegram and Google Calendar integration implementations.
 - `tests/`: pytest suite covering API, scheduling, integration, and setup behavior.
@@ -24,6 +26,7 @@ This repository contains a scheduling and appointment management service with a 
 - Prefer small, targeted edits over broad refactors.
 - Keep business logic in `core/` and route handlers thin; do not move scheduling logic into FastAPI route functions.
 - Preserve async patterns. Most I/O and DB work is async.
+- Keep persistence behind repository interfaces in `core/repositories/`; `AppointmentsService` should orchestrate business logic and remain independent from `api/` and HTTP concerns.
 - Maintain compatibility with the existing SQLite/Tortoise setup and configuration sync flow.
 - Respect existing naming and serialization conventions used by the appointment service.
 - When changing DB or config behavior, check the corresponding startup/migration path in `core/db.py` and `core/migrations.py`.

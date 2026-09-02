@@ -19,8 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from core.appointments import AppointmentsService
 from core.db import init_db
+from core.services.appointments import AppointmentsService
 
 
 async def export_config_from_db(

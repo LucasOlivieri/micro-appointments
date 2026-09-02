@@ -2,8 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import create_app
-from core.appointments import AppointmentsService
 from core.db import init_db
+from core.services.appointments import AppointmentsService
 
 API_USER_ID = "api-user"
 API_TIMEZONE = "America/Argentina/Buenos_Aires"

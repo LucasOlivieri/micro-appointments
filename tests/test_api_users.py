@@ -1,6 +1,6 @@
 from conftest import API_TIMEZONE, API_USER_ID
 
-from core.appointments import AppointmentsService
+from core.services.appointments import AppointmentsService
 
 
 async def test_available_appointment_types_are_listed_for_user(api):

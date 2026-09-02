@@ -2,8 +2,8 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from .appointments import AppointmentsService
 from .recurrence import rule_applies_on
+from .services.appointments import AppointmentsService
 
 DATABASE_PATH = Path(__file__).resolve().parent.parent / "db.sqlite3"
 
