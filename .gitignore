@@ -6,6 +6,9 @@
 .claude
 .cursor
 .codebase-memory
+.github/context-mode
+.github/hooks
+.tokensave
 
 *.py[cod]
 __pycache__/
