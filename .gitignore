@@ -5,7 +5,6 @@
 .zed
 .claude
 .cursor
-.github
 .codebase-memory
 
 *.py[cod]
