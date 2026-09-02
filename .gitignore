@@ -1,6 +1,13 @@
 .venv
 .env
+
 .vscode
+.zed
+.claude
+.cursor
+.github
+.codebase-memory
+
 *.py[cod]
 __pycache__/
 .pytest_cache
@@ -14,5 +21,5 @@ backups/
 uv.lock
 credentials.json
 google_token.json
-logs/
+logs
 # tests.ipynb
