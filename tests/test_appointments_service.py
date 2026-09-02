@@ -1,3 +1,6 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import pytest
 
 import core.services.appointments as appointments_module
@@ -79,6 +82,51 @@ async def test_update_returns_item_and_dispatches_updated(service):
 
     assert updated["reason"] == "rescheduled"
     assert received == [updated]
+
+
+async def test_service_has_main_compatibility_logic(tmp_path):
+    await init_db(tmp_path / "testdb.sqlite3")
+    service = AppointmentsService(tmp_path / "testdb.sqlite3")
+    await service.create_user(
+        {
+            "id": "user-2",
+            "name": "User Two",
+            "email": "user2@example.com",
+            "timezone": "America/Argentina/Buenos_Aires",
+        }
+    )
+    await service.create_rule(
+        {
+            "user": "user-2",
+            "weekday": 0,
+            "start": "09:00",
+            "end": "17:00",
+        }
+    )
+    await service.create_appointment_type(
+        {
+            "user": "user-2",
+            "name": "Follow-up",
+            "duration_minutes": 15,
+        }
+    )
+
+    user = await service.get_user("user-2")
+    user["rules"] = await service.list_rules("user-2")
+    user["appointment_types"] = await service.list_appointment_types("user-2")
+    user["blocked_time"] = []
+
+    assert service.get_appointment_type(user, "follow-up")["name"] == "Follow-up"
+    slots = service.get_next_free_slots(
+        user,
+        "Follow-up",
+        nr_slots=2,
+        from_datetime=datetime(
+            2026, 8, 24, 8, 0, tzinfo=ZoneInfo("America/Argentina/Buenos_Aires")
+        ),
+    )
+    assert len(slots) >= 2
+    assert all(slot["appointment_type"] == "Follow-up" for slot in slots)
 
 
 async def test_service_uses_model_repositories(service):

@@ -3,7 +3,6 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from core.main import load_user
 from core.services.appointments import AppointmentsService
 
 DEFAULT_DATABASE_PATH = Path(__file__).resolve().parent.parent / "db.sqlite3"
@@ -15,7 +14,7 @@ def _not_found(detail: str):
 
 async def _load_user_or_404(user_id: str, database_path: Path) -> dict[str, Any]:  # type: ignore
     try:
-        return await load_user(user_id, database_path=database_path)
+        return await _service(database_path).load_user(user_id)
     except KeyError, TypeError:
         _not_found(f"User not found: {user_id}")
 

@@ -16,7 +16,6 @@ from api.schemas import (
     AppointmentUpdate,
     AvailableSlot,
 )
-from core.main import book_appointment, get_next_free_slots
 
 
 def create_router(database_path: Path) -> APIRouter:
@@ -76,8 +75,9 @@ def create_router(database_path: Path) -> APIRouter:
         ] = None,
     ):
         user = await _load_user_or_404(user_id, database_path)
+        service = _service(database_path)
         try:
-            return get_next_free_slots(
+            return service.get_next_free_slots(
                 user,
                 appointment_type,
                 nr_slots=nr_slots,
@@ -95,12 +95,12 @@ def create_router(database_path: Path) -> APIRouter:
     )
     async def create_appointment(payload: AppointmentCreate):
         user = await _load_user_or_404(payload.user_id, database_path)
+        service = _service(database_path)
         try:
-            booking = await book_appointment(
+            booking = await service.book_appointment(
                 user,
                 payload.appointment_type,
                 payload.start,
-                database_path=database_path,
                 customer_name=payload.name,
                 customer_phone=payload.phone,
             )
@@ -153,11 +153,10 @@ def create_router(database_path: Path) -> APIRouter:
         appointment_type = payload.appointment_type or existing["appointment_type"]
         start = payload.start or datetime.fromisoformat(existing["start"])
         try:
-            replacement = await book_appointment(
+            replacement = await service.book_appointment(
                 user,
                 appointment_type,
                 start,
-                database_path=database_path,
                 exclude_start=existing["start"],
                 customer_name=existing.get("name"),
                 customer_phone=existing.get("phone"),
