@@ -208,12 +208,12 @@ Use the same checks that run in CI so you catch issues before pushing:
 uv sync --group test
 
 # 2) Install CI tooling in your local env (one-time)
-uv pip install ruff black mypy bandit
+uv pip install ruff black ty bandit
 
 # 3) Run quality checks
 uv run ruff check .
 uv run black --check .
-uv run mypy api core bot
+uv run ty check api core bot
 uv run bandit -q -r api core bot
 
 # 4) Run tests
@@ -230,7 +230,7 @@ The project includes a `.pre-commit-config.yaml` with the following hooks:
 | `ruff` | commit | Lint and auto-fix |
 | `black` | commit | Code formatting |
 | `bandit` | push | Security scan (`api`, `core`, `bot`) |
-| `mypy` | push | Type checking (`api`, `core`, `bot`) |
+| `ty` | push | Type checking (`api`, `core`, `bot`) |
 | `pytest` | push | Run test suite |
 
 Install the hooks with:

@@ -52,7 +52,7 @@ This repository contains a scheduling and appointment management service with a 
 - Formatting check:
   - `uv run black --check .`
 - Type check:
-  - `uv run mypy api core bot`
+  - `uv run ty check api core bot`
 
 ## Repository-specific rules
 - The app initializes the DB at startup via `api.main.create_app()` and `core.db.init_db()`.

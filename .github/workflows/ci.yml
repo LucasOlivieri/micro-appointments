@@ -33,7 +33,7 @@ jobs:
         run: uv sync --group test
 
       - name: Install CI tools
-        run: uv pip install --system ruff black mypy bandit
+        run: uv pip install --system ruff black ty bandit
 
       - name: Ensure config file exists
         run: |
@@ -47,8 +47,9 @@ jobs:
       - name: Black format check
         run: uv run black --check .
 
-      - name: Mypy type check
-        run: uv run mypy api core bot
+      - name: Ty type check
+        run: uv run ty check api core bot
+
 
       - name: Bandit security scan
         run: uv run bandit -q -r api core bot
