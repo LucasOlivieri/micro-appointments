@@ -417,6 +417,72 @@ class AppointmentsService:
             day += timedelta(days=1)
         return slots
 
+    def get_daily_availability(self, user, appointment_type, target_date):
+        appt = self.get_appointment_type(user, appointment_type)
+        duration = timedelta(minutes=appt["duration_minutes"])
+        working_hours = self.get_working_hours(user, target_date)
+        timezone = ZoneInfo(user["timezone"])
+        day_start = datetime.combine(target_date, time.min, tzinfo=timezone)
+        day_end = day_start + timedelta(days=1)
+        blocked_periods = []
+        for block in user.get("blocked_time", []):
+            if "start" in block and "end" in block:
+                block_start = datetime.fromisoformat(block["start"])
+                block_end = datetime.fromisoformat(block["end"])
+                if block_start < day_end and block_end > day_start:
+                    blocked_periods.append(block)
+            elif "start_date" in block and "end_date" in block:
+                block_start = datetime.combine(
+                    date.fromisoformat(block["start_date"]),
+                    time.min,
+                    tzinfo=timezone,
+                )
+                block_end = datetime.combine(
+                    date.fromisoformat(block["end_date"]) + timedelta(days=1),
+                    time.min,
+                    tzinfo=timezone,
+                )
+                if block_start < day_end and block_end > day_start:
+                    blocked_periods.append(block)
+            elif (
+                block.get("condition", {}).get("month", "").lower()
+                == target_date.strftime("%B").lower()
+            ):
+                blocked_periods.append(block)
+        if not working_hours:
+            return {
+                "date": target_date.isoformat(),
+                "timezone": user["timezone"],
+                "working_start": None,
+                "working_end": None,
+                "blocked_periods": blocked_periods,
+                "available_slots": [],
+            }
+
+        working_start, working_end = working_hours
+        slots = []
+        current = working_start
+        while current + duration <= working_end:
+            slot_end = current + duration
+            if not self.is_blocked(user, current, slot_end):
+                slots.append(
+                    {
+                        "start": current.isoformat(),
+                        "end": slot_end.isoformat(),
+                        "appointment_type": appt["name"],
+                    }
+                )
+            current += duration
+
+        return {
+            "date": target_date.isoformat(),
+            "timezone": user["timezone"],
+            "working_start": working_start.isoformat(),
+            "working_end": working_end.isoformat(),
+            "blocked_periods": blocked_periods,
+            "available_slots": slots,
+        }
+
     async def book_appointment(
         self,
         user,

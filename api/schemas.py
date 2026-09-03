@@ -34,6 +34,15 @@ class AvailableSlot(BaseModel):
     appointment_type: str
 
 
+class DailyAvailability(BaseModel):
+    date: str
+    timezone: str
+    working_start: str | None
+    working_end: str | None
+    blocked_periods: list[dict[str, object]]
+    available_slots: list[AvailableSlot]
+
+
 class AvailableAppointmentType(BaseModel):
     name: str
     duration_minutes: int

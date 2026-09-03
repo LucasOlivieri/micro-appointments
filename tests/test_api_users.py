@@ -19,6 +19,17 @@ async def test_available_appointment_types_require_existing_user(api):
     assert response.status_code == 404
 
 
+def test_health_reports_database_and_integrations(api):
+    response = api.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "database": "ok",
+        "integrations": [],
+    }
+
+
 async def test_users_lists_calendar_users(api):
     async def create_user():
         service = AppointmentsService("api.sqlite3")

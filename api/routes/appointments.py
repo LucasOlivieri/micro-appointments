@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -15,6 +15,7 @@ from api.schemas import (
     AppointmentCreate,
     AppointmentUpdate,
     AvailableSlot,
+    DailyAvailability,
 )
 
 
@@ -110,6 +111,31 @@ def create_router(database_path: Path) -> APIRouter:
                 appointment_type,
                 nr_slots=nr_slots,
                 from_datetime=from_datetime,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @router.get(
+        "/appointments/availability",
+        response_model=DailyAvailability,
+        summary="Get availability for a specific date",
+        description=(
+            "Return working hours, blocked periods, and available slots for one date."
+        ),
+    )
+    async def daily_availability(
+        user_id: Annotated[
+            str, Query(description="The user whose calendar to inspect")
+        ],
+        appointment_type: Annotated[
+            str, Query(min_length=1, description="Appointment type name")
+        ],
+        date: Annotated[date, Query(description="The calendar date to inspect")],
+    ):
+        user = await _load_user_or_404(user_id, database_path)
+        try:
+            return _service(database_path).get_daily_availability(
+                user, appointment_type, date
             )
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error

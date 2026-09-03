@@ -127,6 +127,72 @@ async def test_list_appointments_filters_by_date_and_customer(api):
     assert [item["id"] for item in response.json()] == [first["id"]]
 
 
+async def test_daily_availability_returns_hours_and_free_slots(api):
+    response = api.get(
+        "/appointments/availability",
+        params={
+            "user_id": API_USER_ID,
+            "appointment_type": "Follow-up",
+            "date": "2026-08-24",
+        },
+    )
+
+    assert response.status_code == 200
+    availability = response.json()
+    assert availability["date"] == "2026-08-24"
+    assert availability["working_start"] == "2026-08-24T09:00:00-03:00"
+    assert availability["working_end"] == "2026-08-24T17:00:00-03:00"
+    assert len(availability["available_slots"]) == 32
+
+
+async def test_daily_availability_is_empty_outside_working_days(api):
+    response = api.get(
+        "/appointments/availability",
+        params={
+            "user_id": API_USER_ID,
+            "appointment_type": "Follow-up",
+            "date": "2026-08-29",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["working_start"] is None
+    assert response.json()["available_slots"] == []
+
+
+async def test_daily_availability_only_returns_blocks_for_requested_date(api, tmp_path):
+    api.portal.call(seed_block, tmp_path / "api.sqlite3")
+
+    response = api.get(
+        "/appointments/availability",
+        params={
+            "user_id": API_USER_ID,
+            "appointment_type": "Follow-up",
+            "date": "2026-08-24",
+        },
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()["blocked_periods"]) == 1
+    assert response.json()["blocked_periods"][0] == {
+        "reason": "vacation",
+        "start_date": "2026-08-24",
+        "end_date": "2026-08-24",
+    }
+
+    response = api.get(
+        "/appointments/availability",
+        params={
+            "user_id": API_USER_ID,
+            "appointment_type": "Follow-up",
+            "date": "2026-09-08",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["blocked_periods"] == []
+
+
 async def test_reschedule_revalidates_and_keeps_original_when_conflicting(api):
     first = api.post("/appointments", json=appointment_payload()).json()
     second = appointment_payload(name="Grace Hopper")

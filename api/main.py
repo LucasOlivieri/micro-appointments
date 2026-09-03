@@ -3,13 +3,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from api.dependencies import DEFAULT_DATABASE_PATH
 from api.routes.agent import create_router as create_agent_router
 from api.routes.appointments import create_router as create_appointments_router
 from api.routes.users import create_router as create_users_router
 from core.db import close_db, init_db
+from core.models import User
 from integrations import Integration, IntegrationFactory
 
 logging.basicConfig(
@@ -78,6 +79,27 @@ def create_app(
             return Response(status_code=403)
         await telegram.handle_webhook(await request.json())  # type: ignore[attr-defined]
         return Response(status_code=200)
+
+    @app.get("/health")
+    async def health():
+        integrations: list[Integration] = getattr(app.state, "integrations", [])
+        try:
+            await User.all().limit(1).values("id")
+        except Exception:
+            logger.exception("Health check database query failed")
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "degraded",
+                    "database": "unavailable",
+                    "integrations": [integration.name for integration in integrations],
+                },
+            )
+        return {
+            "status": "ok",
+            "database": "ok",
+            "integrations": [integration.name for integration in integrations],
+        }
 
     return app
 
