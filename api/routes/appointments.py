@@ -32,10 +32,38 @@ def create_router(database_path: Path) -> APIRouter:
         appointment_type: str | None = Query(
             default=None, description="Case-insensitive appointment type filter"
         ),
+        from_datetime: Annotated[
+            datetime | None,
+            Query(description="Only appointments starting at or after this time"),
+        ] = None,
+        to_datetime: Annotated[
+            datetime | None,
+            Query(description="Only appointments starting at or before this time"),
+        ] = None,
+        customer_phone: Annotated[
+            str | None,
+            Query(description="Only appointments for this customer phone"),
+        ] = None,
     ):
         await _load_user_or_404(user_id, database_path)
         return await _service(database_path).list_appointments(
-            user_id, appointment_type
+            user_id, appointment_type, from_datetime, to_datetime, customer_phone
+        )
+
+    @router.get(
+        "/appointments/by-customer",
+        response_model=list[Appointment],
+        summary="Find a customer's appointments",
+    )
+    async def customer_appointments(
+        user_id: str = Query(description="The user whose calendar to search"),
+        customer_phone: str = Query(
+            min_length=1, description="The customer's phone number"
+        ),
+    ):
+        await _load_user_or_404(user_id, database_path)
+        return await _service(database_path).list_appointments(
+            user_id, customer_phone=customer_phone
         )
 
     @router.get(
@@ -165,7 +193,9 @@ def create_router(database_path: Path) -> APIRouter:
             message = str(error)
             code = status.HTTP_409_CONFLICT if "already blocked" in message else 422
             raise HTTPException(status_code=code, detail=message) from error
-        await service.delete_appointment(payload.user_id, appointment_id)
+        await service.delete_appointment(
+            payload.user_id, appointment_id, existing["phone"]
+        )
         return _response_appointment(replacement, payload.user_id)
 
     @router.delete(
@@ -178,11 +208,18 @@ def create_router(database_path: Path) -> APIRouter:
     async def delete_appointment(
         appointment_id: int,
         user_id: str = Query(description="The owner of the appointment"),
+        customer_phone: str = Query(
+            min_length=1,
+            description="The phone number belonging to the appointment customer",
+        ),
     ):
         await _load_user_or_404(user_id, database_path)
-        deleted = await _service(database_path).delete_appointment(
-            user_id, appointment_id
-        )
+        try:
+            deleted = await _service(database_path).delete_appointment(
+                user_id, appointment_id, customer_phone
+            )
+        except PermissionError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
         if deleted is None:
             _not_found(f"Appointment not found: {appointment_id}")
         return deleted

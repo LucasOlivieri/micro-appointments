@@ -60,13 +60,31 @@ def build_tools(api_url: str):
 
     @function_tool
     async def list_user_appointments(
-        user_id: str, appointment_type: str | None = None
+        user_id: str,
+        appointment_type: str | None = None,
+        from_datetime: str | None = None,
+        to_datetime: str | None = None,
     ) -> list[dict[str, Any]]:
-        """List a user's scheduled appointments, optionally filtered by type."""
+        """List a user's scheduled appointments with optional type and date filters."""
         params: dict[str, Any] = {"user_id": user_id}
         if appointment_type is not None:
             params["appointment_type"] = appointment_type
+        if from_datetime is not None:
+            params["from_datetime"] = from_datetime
+        if to_datetime is not None:
+            params["to_datetime"] = to_datetime
         return await client.request("GET", "/appointments", params=params)
+
+    @function_tool
+    async def find_customer_appointments(
+        user_id: str, customer_phone: str
+    ) -> list[dict[str, Any]]:
+        """Find appointments belonging to a customer by phone number."""
+        return await client.request(
+            "GET",
+            "/appointments/by-customer",
+            params={"user_id": user_id, "customer_phone": customer_phone},
+        )
 
     @function_tool
     async def schedule_appointment(
@@ -111,6 +129,17 @@ def build_tools(api_url: str):
         )
 
     @function_tool
+    async def cancel_appointment(
+        user_id: str, appointment_id: int, customer_phone: str
+    ) -> dict[str, Any]:
+        """Cancel an appointment using the customer's phone number as confirmation."""
+        return await client.request(
+            "DELETE",
+            f"/appointments/{appointment_id}",
+            params={"user_id": user_id, "customer_phone": customer_phone},
+        )
+
+    @function_tool
     async def find_available_appointment_types(
         user_id: str,
     ) -> list[dict[str, Any]]:
@@ -126,6 +155,8 @@ def build_tools(api_url: str):
         find_available_appointment_types,
         find_available_slots,
         list_user_appointments,
+        find_customer_appointments,
         schedule_appointment,
         move_appointment,
+        cancel_appointment,
     ]

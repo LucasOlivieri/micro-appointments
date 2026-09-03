@@ -106,3 +106,12 @@ async def test_agent_websocket_runs_like_notebook_client(api, monkeypatch):
         data = websocket.receive_json()
 
     assert data == {"response": "Here are your appointments."}
+
+
+def test_agent_prompt_uses_user_timezone():
+    from bot.handler import build_agent_prompt
+
+    prompt = build_agent_prompt("What time is my appointment?", "api-user", "UTC")
+
+    assert "Current time:" in prompt
+    assert "+00:00" in prompt

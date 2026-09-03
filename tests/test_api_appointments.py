@@ -71,7 +71,8 @@ async def test_get_and_delete_enforce_ownership(api):
         == 404
     )
     deleted = api.delete(
-        f"/appointments/{created['id']}", params={"user_id": API_USER_ID}
+        f"/appointments/{created['id']}",
+        params={"user_id": API_USER_ID, "customer_phone": "+541100000001"},
     )
     assert deleted.status_code == 200
     assert (
@@ -80,6 +81,50 @@ async def test_get_and_delete_enforce_ownership(api):
         ).status_code
         == 404
     )
+
+
+async def test_only_customer_can_cancel_appointment(api):
+    created = api.post("/appointments", json=appointment_payload()).json()
+    response = api.delete(
+        f"/appointments/{created['id']}",
+        params={"user_id": API_USER_ID, "customer_phone": "+541100000002"},
+    )
+    assert response.status_code == 403
+    assert (
+        api.get(
+            f"/appointments/{created['id']}", params={"user_id": API_USER_ID}
+        ).status_code
+        == 200
+    )
+
+    response = api.delete(
+        f"/appointments/{created['id']}",
+        params={"user_id": API_USER_ID, "customer_phone": "+541100000001"},
+    )
+    assert response.status_code == 200
+
+
+async def test_list_appointments_filters_by_date_and_customer(api):
+    first = api.post("/appointments", json=appointment_payload()).json()
+    second_payload = appointment_payload(name="Grace Hopper")
+    second_payload["start"] = "2026-08-25T10:00:00-03:00"
+    second_payload["phone"] = "+541100000002"
+    second = api.post("/appointments", json=second_payload).json()
+
+    response = api.get(
+        "/appointments",
+        params={
+            "user_id": API_USER_ID,
+            "from_datetime": "2026-08-25T00:00:00-03:00",
+            "to_datetime": "2026-08-25T23:59:59-03:00",
+        },
+    )
+    assert [item["id"] for item in response.json()] == [second["id"]]
+    response = api.get(
+        "/appointments/by-customer",
+        params={"user_id": API_USER_ID, "customer_phone": "+541100000001"},
+    )
+    assert [item["id"] for item in response.json()] == [first["id"]]
 
 
 async def test_reschedule_revalidates_and_keeps_original_when_conflicting(api):

@@ -190,7 +190,14 @@ class AppointmentsService:
             "info": customer.info,
         }
 
-    async def list_appointments(self, user_id, appointment_type=None):
+    async def list_appointments(
+        self,
+        user_id,
+        appointment_type=None,
+        from_datetime=None,
+        to_datetime=None,
+        customer_phone=None,
+    ):
         rows = await self.blocked_times.list_booked_for_user(
             user_id,
             appointment_type=appointment_type,
@@ -204,6 +211,21 @@ class AppointmentsService:
 
         appointments = []
         for row in rows:
+            if customer_phone is not None and row.customer != customer_phone:
+                continue
+            start = datetime.fromisoformat(row.start)
+            if from_datetime is not None:
+                bound = from_datetime
+                if bound.tzinfo is None:
+                    bound = bound.replace(tzinfo=start.tzinfo)
+                if start < bound:
+                    continue
+            if to_datetime is not None:
+                bound = to_datetime
+                if bound.tzinfo is None:
+                    bound = bound.replace(tzinfo=start.tzinfo)
+                if start > bound:
+                    continue
             c = customers.get(row.customer) if row.customer else None
             appointments.append(
                 {
@@ -237,10 +259,12 @@ class AppointmentsService:
             "google_event_id": row.google_event_id,
         }
 
-    async def delete_appointment(self, user_id, appointment_id):
+    async def delete_appointment(self, user_id, appointment_id, customer_phone):
         appointment = await self.get_appointment(user_id, appointment_id)
         if appointment is None:
             return None
+        if appointment["phone"] != customer_phone:
+            raise PermissionError("Only the customer can cancel this appointment")
 
         await self.blocked_times.delete_by_id(appointment_id)
         await _dispatch(DELETED, appointment)

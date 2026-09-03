@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 from string import Template
+from zoneinfo import ZoneInfo
 
 from bot.agent import run_agent
 
@@ -21,10 +22,13 @@ async def handle_agent_message(
     )
 
 
-def build_agent_prompt(message: str, user_id: str | None = None) -> str:
+def build_agent_prompt(
+    message: str, user_id: str | None = None, timezone: str | None = None
+) -> str:
     """Build the standard user-aware prompt without executing the agent."""
+    current_time = datetime.now(ZoneInfo(timezone)) if timezone else datetime.now()
     return _MESSAGE_TEMPLATE.substitute(
         user_id=user_id or "not provided",
-        current_time=str(datetime.now()),
+        current_time=str(current_time),
         message=message,
     )
