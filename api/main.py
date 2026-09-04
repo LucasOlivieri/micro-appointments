@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse, Response
 from api.dependencies import DEFAULT_DATABASE_PATH
 from api.routes.agent import create_router as create_agent_router
 from api.routes.appointments import create_router as create_appointments_router
+from api.routes.dashboard import create_router as create_dashboard_router
 from api.routes.users import create_router as create_users_router
 from core.db import close_db, init_db
 from core.models import User
@@ -60,6 +61,8 @@ def create_app(
     app.include_router(create_users_router(database_path))
     app.include_router(create_appointments_router(database_path))
     app.include_router(create_agent_router(database_path))
+    app.state.dashboard_sessions = {}
+    app.include_router(create_dashboard_router(database_path))
 
     @app.post("/integrations/telegram/webhook")
     async def telegram_webhook(request: Request) -> Response:

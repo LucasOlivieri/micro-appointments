@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Appointments dashboard</title>
+    <style>
+      :root { color-scheme: light; font-family: Georgia, serif; background: #f3f0e8; color: #18302b; }
+      body { margin: 0; min-height: 100vh; background: radial-gradient(circle at top right, #e7c995, transparent 40%), #f3f0e8; }
+      main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0; }
+      h1 { font-size: clamp(2.5rem, 7vw, 5.8rem); line-height: .9; margin: 0 0 32px; max-width: 720px; }
+      h2 { font-size: 1.5rem; margin: 0 0 12px; }
+      .panel { background: #fffdf7; border: 1px solid #d8d2c3; padding: 24px; box-shadow: 8px 8px 0 #c9d8cb; }
+      form { display: flex; gap: 12px; max-width: 560px; }
+      input, button { font: inherit; padding: 12px 14px; border: 1px solid #18302b; }
+      input { flex: 1; background: #fffdf7; }
+      button { background: #18302b; color: #fffdf7; cursor: pointer; }
+      button:hover { background: #bd4f35; }
+      #app { display: none; }
+      .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+      .toolbar button { background: transparent; color: #18302b; }
+      .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+      .stat { border-top: 4px solid #bd4f35; padding: 14px; background: #dfe9dc; }
+      .stat strong { display: block; font-size: 2rem; }
+      .view-toggle { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 20px; background: #dfe9dc; }
+      .view-toggle button { border: 0; background: transparent; color: #18302b; }
+      .view-toggle button.active { background: #18302b; color: #fffdf7; }
+      .table-panel { background: #fffdf7; border: 1px solid #d8d2c3; padding: 24px; box-shadow: 8px 8px 0 #c9d8cb; }
+      .tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 20px; border-bottom: 1px solid #d8d2c3; }
+      .tab { flex: 0 0 auto; border: 0; border-bottom: 4px solid transparent; background: transparent; color: #18302b; padding: 12px 14px; }
+      .tab:hover, .tab.active { background: #dfe9dc; border-bottom-color: #bd4f35; }
+      .table-wrap { overflow-x: auto; }
+      .calendar-panel { background: #fffdf7; border: 1px solid #d8d2c3; padding: 24px; box-shadow: 8px 8px 0 #c9d8cb; }
+      .calendar-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+      .calendar-toolbar h2 { margin: 0; }
+      .calendar-toolbar button { padding: 8px 12px; }
+      .calendar-actions { display: flex; gap: 6px; }
+      .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(100px, 1fr)); border-top: 1px solid #d8d2c3; border-left: 1px solid #d8d2c3; min-width: 700px; }
+      .weekday { padding: 10px 8px; color: #bd4f35; font: 700 .75rem ui-sans-serif, sans-serif; text-transform: uppercase; letter-spacing: .08em; border-right: 1px solid #d8d2c3; border-bottom: 1px solid #d8d2c3; }
+      .calendar-day { min-height: 118px; padding: 8px; border-right: 1px solid #d8d2c3; border-bottom: 1px solid #d8d2c3; background: #fffdf7; }
+      .calendar-day.outside { background: #f3f0e8; color: #8d938b; }
+      .calendar-day.today { box-shadow: inset 0 4px #bd4f35; }
+      .day-number { display: block; margin-bottom: 7px; font: 700 .85rem ui-sans-serif, sans-serif; }
+      .calendar-event { display: block; overflow: hidden; margin-bottom: 4px; padding: 4px 5px; border-left: 3px solid #3f7668; background: #dfe9dc; font: .74rem ui-sans-serif, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+      .calendar-event.blocked { border-left-color: #bd4f35; background: #f1ded5; }
+      .calendar-scroll { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; font-family: ui-sans-serif, sans-serif; font-size: .9rem; }
+      th, td { padding: 9px 6px; border-bottom: 1px solid #d8d2c3; text-align: left; vertical-align: top; }
+      th { color: #bd4f35; }
+      #error { color: #bd4f35; min-height: 1.4em; }
+      @media (max-width: 580px) { main { padding: 24px 0; } form { flex-direction: column; } .panel { padding: 16px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section id="login" class="panel">
+        <p>PRIVATE VIEW / APPOINTMENTS</p>
+        <h1>See the whole calendar clearly.</h1>
+        <form id="login-form">
+          <input id="key" type="password" placeholder="Dashboard key" autocomplete="current-password" required>
+          <button type="submit">Open dashboard</button>
+        </form>
+        <p id="error" role="alert"></p>
+      </section>
+      <section id="app">
+        <div class="toolbar"><div><p>READ ONLY / <span id="role"></span></p></div><button id="logout">Log out</button></div>
+        <div id="stats" class="stats"></div>
+        <div class="view-toggle" role="tablist" aria-label="Dashboard views">
+          <button class="active" data-view="table" role="tab" aria-selected="true">Table</button>
+          <button data-view="calendar" role="tab" aria-selected="false">Calendar</button>
+        </div>
+        <section id="table-view" class="table-panel">
+          <nav id="table-tabs" class="tabs" aria-label="Dashboard data views"></nav>
+          <div class="table-wrap">
+            <table><thead id="table-head"></thead><tbody id="table-body"></tbody></table>
+          </div>
+        </section>
+        <section id="calendar-view" class="calendar-panel" hidden>
+          <div class="calendar-toolbar">
+            <h2 id="calendar-title"></h2>
+            <div class="calendar-actions">
+              <button id="previous-month" aria-label="Previous month" title="Previous month">&#8592;</button>
+              <button id="today" aria-label="Go to today">Today</button>
+              <button id="next-month" aria-label="Next month" title="Next month">&#8594;</button>
+            </div>
+          </div>
+          <div class="calendar-scroll"><div id="calendar-grid" class="calendar-grid"></div></div>
+        </section>
+      </section>
+    </main>
+    <script>
+      const tokenKey = "appointments-dashboard-token";
+      const login = document.querySelector("#login");
+      const app = document.querySelector("#app");
+      const error = document.querySelector("#error");
+      const token = () => localStorage.getItem(tokenKey);
+      const escapeHtml = value => String(value ?? "").replace(/[&<>\"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#039;"}[character]));
+      let dashboardData;
+      let activeTab = "users";
+      let calendarMonth = new Date();
+      const views = [
+        ["users", "Users"],
+        ["appointments", "Appointments"],
+        ["customers", "Customers"],
+        ["rules", "Availability rules"],
+        ["appointment_types", "Appointment types"],
+        ["blocked_times", "Blocked times"]
+      ];
+      function renderTable() {
+        const rows = dashboardData[activeTab];
+        document.querySelector("#table-tabs").innerHTML = views.map(([key, label]) => `<button class="tab ${key === activeTab ? "active" : ""}" data-tab="${key}" aria-selected="${key === activeTab}">${label}</button>`).join("");
+        document.querySelector("#table-head").innerHTML = rows.length ? `<tr>${Object.keys(rows[0]).map(key => `<th>${escapeHtml(key.replaceAll("_", " "))}</th>`).join("")}</tr>` : "";
+        document.querySelector("#table-body").innerHTML = rows.length ? rows.map(row => `<tr>${Object.values(row).map(value => `<td>${escapeHtml(value)}</td>`).join("")}</tr>`).join("") : "<tr><td>No records</td></tr>";
+        document.querySelectorAll(".tab").forEach(button => button.addEventListener("click", () => { activeTab = button.dataset.tab; renderTable(); }));
+      }
+      function dateKey(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      }
+      function calendarEvents() {
+        const appointments = dashboardData.appointments.map(item => ({
+          date: item.start.slice(0, 10),
+          label: `${item.start.slice(11, 16)} ${item.name || item.appointment_type}`,
+          blocked: false
+        }));
+        const blocked = dashboardData.blocked_times.filter(item => item.reason !== "booked" && item.start).map(item => ({
+          date: item.start.slice(0, 10),
+          label: `${item.start.slice(11, 16)} ${item.reason}`,
+          blocked: true
+        }));
+        return [...appointments, ...blocked];
+      }
+      function renderCalendar() {
+        const year = calendarMonth.getFullYear();
+        const month = calendarMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const gridStart = new Date(year, month, 1 - firstDay.getDay());
+        const events = calendarEvents();
+        document.querySelector("#calendar-title").textContent = calendarMonth.toLocaleDateString(undefined, {month: "long", year: "numeric"});
+        const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => `<div class="weekday">${day}</div>`).join("");
+        const days = Array.from({length: 42}, (_, index) => {
+          const day = new Date(gridStart);
+          day.setDate(gridStart.getDate() + index);
+          const key = dateKey(day);
+          const dayEvents = events.filter(event => event.date === key);
+          const classes = ["calendar-day", day.getMonth() !== month ? "outside" : "", key === dateKey(new Date()) ? "today" : ""].filter(Boolean).join(" ");
+          return `<div class="${classes}"><span class="day-number">${day.getDate()}</span>${dayEvents.map(event => `<span class="calendar-event ${event.blocked ? "blocked" : ""}" title="${escapeHtml(event.label)}">${escapeHtml(event.label)}</span>`).join("")}</div>`;
+        }).join("");
+        document.querySelector("#calendar-grid").innerHTML = weekdays + days;
+      }
+      function renderView(view) {
+        const tableView = document.querySelector("#table-view");
+        const calendarView = document.querySelector("#calendar-view");
+        tableView.hidden = view !== "table";
+        calendarView.hidden = view !== "calendar";
+        document.querySelectorAll(".view-toggle button").forEach(button => {
+          const active = button.dataset.view === view;
+          button.classList.toggle("active", active);
+          button.setAttribute("aria-selected", active);
+        });
+        if (view === "calendar") renderCalendar();
+      }
+      async function loadDashboard() {
+        const response = await fetch("/dashboard/data", {headers: {Authorization: `Bearer ${token()}`}});
+        if (!response.ok) { localStorage.removeItem(tokenKey); login.style.display = "block"; app.style.display = "none"; return; }
+        dashboardData = await response.json();
+        login.style.display = "none"; app.style.display = "block"; document.querySelector("#role").textContent = dashboardData.role;
+        document.querySelector("#stats").innerHTML = Object.entries({Users: dashboardData.users.length, Appointments: dashboardData.appointments.length, Customers: dashboardData.customers.length, "Blocked times": dashboardData.blocked_times.length}).map(([label, value]) => `<div class="stat"><span>${label}</span><strong>${value}</strong></div>`).join("");
+        renderTable();
+        renderView("table");
+      }
+      document.querySelectorAll(".view-toggle button").forEach(button => button.addEventListener("click", () => renderView(button.dataset.view)));
+      document.querySelector("#previous-month").addEventListener("click", () => { calendarMonth.setMonth(calendarMonth.getMonth() - 1); renderCalendar(); });
+      document.querySelector("#next-month").addEventListener("click", () => { calendarMonth.setMonth(calendarMonth.getMonth() + 1); renderCalendar(); });
+      document.querySelector("#today").addEventListener("click", () => { calendarMonth = new Date(); renderCalendar(); });
+      document.querySelector("#login-form").addEventListener("submit", async event => { event.preventDefault(); error.textContent = ""; const response = await fetch("/dashboard/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({key: document.querySelector("#key").value})}); if (!response.ok) { error.textContent = "That key was not accepted."; return; } const data = await response.json(); localStorage.setItem(tokenKey, data.token); await loadDashboard(); });
+      document.querySelector("#logout").addEventListener("click", async () => { await fetch("/dashboard/logout", {method: "POST", headers: {Authorization: `Bearer ${token()}`}}); localStorage.removeItem(tokenKey); app.style.display = "none"; login.style.display = "block"; });
+      if (token()) loadDashboard();
+    </script>
+  </body>
+</html>

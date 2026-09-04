@@ -26,6 +26,9 @@ class Config:
     APPOINTMENTS_USER_ID: str | None = os.environ.get("APPOINTMENTS_USER_ID")
     AGENT_MEMORY_PATH: str = os.environ.get("AGENT_MEMORY_PATH", "memory.sqlite3")
 
+    # Read-only dashboard
+    DASHBOARD_SUPERUSER_KEY: str | None = os.environ.get("DASHBOARD_SUPERUSER_KEY")
+
     # Telegram integration
     TELEGRAM_BOT_TOKEN: str | None = os.environ.get("TELEGRAM_BOT_TOKEN")
     TELEGRAM_WEBHOOK_URL: str | None = os.environ.get("TELEGRAM_WEBHOOK_URL")
