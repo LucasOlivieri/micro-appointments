@@ -158,6 +158,15 @@ async def migration_add_google_event_id_column(connection: BaseDBAsyncClient) ->
         )
 
 
+async def migration_add_user_prompt_columns(connection: BaseDBAsyncClient) -> None:
+    if not await _column_exists(connection, "users", "message"):
+        await connection.execute_script('ALTER TABLE users ADD COLUMN "message" TEXT;')
+    if not await _column_exists(connection, "users", "system_prompt"):
+        await connection.execute_script(
+            'ALTER TABLE users ADD COLUMN "system_prompt" TEXT;'
+        )
+
+
 _MIGRATIONS = [
     ("001_create_tables", migration_create_tables),
     ("002_add_booking_columns", migration_add_booking_columns),
@@ -165,6 +174,7 @@ _MIGRATIONS = [
     ("004_add_customer_table", migration_add_customer_table),
     ("005_add_google_event_id_column", migration_add_google_event_id_column),
     ("006_drop_customer_fk", migration_drop_customer_fk),
+    ("007_add_user_prompt_columns", migration_add_user_prompt_columns),
 ]
 
 

@@ -1,17 +1,19 @@
+from pathlib import Path
+
 from agents import Agent, OpenAIProvider, RunConfig, Runner, SQLiteSession
 
 from bot.tools import build_tools
 from config import Config
 
-INSTRUCTIONS = open("bot/templates/system-prompt.md").read()
+INSTRUCTIONS = (Path(__file__).parent / "templates" / "system-prompt.md").read_text()
 
 
-def build_agent(model: str | None = None) -> Agent:
+def build_agent(model: str | None = None, system_prompt: str | None = None) -> Agent:
     api_url = Config.APPOINTMENTS_API_URL
     model = model or Config.OPENAI_MODEL
     return Agent(
         name="Appointment Assistant",
-        instructions=INSTRUCTIONS,
+        instructions=system_prompt or INSTRUCTIONS,
         model=model,
         tools=build_tools(api_url),
     )
@@ -22,6 +24,7 @@ async def run_agent(
     conversation_id: str,
     api_url: str | None = None,
     model: str | None = None,
+    system_prompt: str | None = None,
 ) -> str:
     """Run one turn and persist the conversation in SQLite."""
     api_key = Config.OPENAI_API_KEY
@@ -33,7 +36,7 @@ async def run_agent(
         base_url=Config.OPENAI_BASE_URL or None,
     )
     result = await Runner.run(
-        build_agent(model=model),
+        build_agent(model=model, system_prompt=system_prompt),
         message,
         session=SQLiteSession(conversation_id, memory_path),
         run_config=RunConfig(model_provider=provider),

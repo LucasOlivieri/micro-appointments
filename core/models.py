@@ -6,6 +6,8 @@ class User(Model):
     id: str = fields.CharField(max_length=128, primary_key=True)  # type: ignore[assignment]
     name: str = fields.CharField(max_length=255)  # type: ignore[assignment]
     email: str | None = fields.CharField(max_length=320, null=True)  # type: ignore[assignment]
+    message: str | None = fields.TextField(null=True)  # type: ignore[assignment]
+    system_prompt: str | None = fields.TextField(null=True)  # type: ignore[assignment]
     timezone: str = fields.CharField(  # type: ignore[assignment]
         max_length=128, default="America/Argentina/Buenos_Aires"
     )

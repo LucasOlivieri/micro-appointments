@@ -42,6 +42,8 @@ def create_router(database_path: Path = DEFAULT_DATABASE_PATH) -> APIRouter:
         user_id = await _resolve_user_id(database_path, payload.get("user_id"))
         user = await User.filter(id=user_id).first() if user_id else None
         timezone = user.timezone if user else None
+        message_template = user.message if user else None
+        system_prompt = user.system_prompt if user else None
         message = str(payload.get("message", ""))
         conversation_id = str(payload.get("conversation_id") or "ws-default")
 
@@ -51,9 +53,13 @@ def create_router(database_path: Path = DEFAULT_DATABASE_PATH) -> APIRouter:
             return
 
         try:
-            response = await run_agent(
-                build_agent_prompt(message, user_id, timezone), conversation_id
-            )
+            prompt = build_agent_prompt(message, user_id, timezone, message_template)
+            if system_prompt:
+                response = await run_agent(
+                    prompt, conversation_id, system_prompt=system_prompt
+                )
+            else:
+                response = await run_agent(prompt, conversation_id)
         except Exception as error:
             response = f"Unable to reach the appointment agent: {error}"
 

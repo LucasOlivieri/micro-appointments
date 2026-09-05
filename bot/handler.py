@@ -23,11 +23,15 @@ async def handle_agent_message(
 
 
 def build_agent_prompt(
-    message: str, user_id: str | None = None, timezone: str | None = None
+    message: str,
+    user_id: str | None = None,
+    timezone: str | None = None,
+    message_template: str | None = None,
 ) -> str:
     """Build the standard user-aware prompt without executing the agent."""
     current_time = datetime.now(ZoneInfo(timezone)) if timezone else datetime.now()
-    return _MESSAGE_TEMPLATE.substitute(
+    template = Template(message_template) if message_template else _MESSAGE_TEMPLATE
+    return template.substitute(
         user_id=user_id or "not provided",
         current_time=str(current_time),
         message=message,
