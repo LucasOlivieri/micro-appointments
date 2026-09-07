@@ -27,6 +27,7 @@ dependencies = [
     "python-dotenv>=1.2.3",
     "aiosqlite<0.22",
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
 ]
 
 [dependency-groups]
