@@ -11,6 +11,7 @@ from api.routes.agent import create_router as create_agent_router
 from api.routes.appointments import create_router as create_appointments_router
 from api.routes.dashboard import create_router as create_dashboard_router
 from api.routes.users import create_router as create_users_router
+from config import Config
 from core.db import close_db, init_db
 from core.models import User
 from integrations import Integration, IntegrationFactory
@@ -59,7 +60,12 @@ def create_app(
         version="1.0.0",
         lifespan=lifespan,
     )
-    mount_sqlite_panel(app, db_path="db.sqlite3", title="micro-appointments")
+    mount_sqlite_panel(
+        app,
+        db_path="db.sqlite3",
+        title="micro-appointments",
+        prefix=f"/{Config.ADMIN_URL}",
+    )
     app.include_router(create_users_router(database_path))
     app.include_router(create_appointments_router(database_path))
     app.include_router(create_agent_router(database_path))

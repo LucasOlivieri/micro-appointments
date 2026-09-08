@@ -32,6 +32,7 @@ class Config:
     # Admin panel
     ADMIN_USER: str = os.environ.get("ADMIN_USER", "admin")
     ADMIN_PASSWORD: str = os.environ.get("ADMIN_PASSWORD", "admin")
+    ADMIN_URL: str = os.environ.get("ADMIN_URL", "admin")
 
     # Telegram integration
     TELEGRAM_BOT_TOKEN: str | None = os.environ.get("TELEGRAM_BOT_TOKEN")
