@@ -77,7 +77,7 @@ def create_router(database_path: Path) -> APIRouter:
 
     @router.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
     async def dashboard_page():
-        page = Path(__file__).with_name("dashboard.html")
+        page = Path("api/templates/dashboard.html")
         return HTMLResponse(page.read_text(encoding="utf-8"))
 
     @router.post("/dashboard/login")
