@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
+from api.admin import mount_sqlite_panel
 from api.dependencies import DEFAULT_DATABASE_PATH
 from api.routes.agent import create_router as create_agent_router
 from api.routes.appointments import create_router as create_appointments_router
@@ -58,6 +59,7 @@ def create_app(
         version="1.0.0",
         lifespan=lifespan,
     )
+    mount_sqlite_panel(app, db_path="db.sqlite3", title="micro-appointments")
     app.include_router(create_users_router(database_path))
     app.include_router(create_appointments_router(database_path))
     app.include_router(create_agent_router(database_path))

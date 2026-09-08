@@ -29,6 +29,10 @@ class Config:
     # Read-only dashboard
     DASHBOARD_SUPERUSER_KEY: str | None = os.environ.get("DASHBOARD_SUPERUSER_KEY")
 
+    # Admin panel
+    ADMIN_USER: str = os.environ.get("ADMIN_USER", "admin")
+    ADMIN_PASSWORD: str = os.environ.get("ADMIN_PASSWORD", "admin")
+
     # Telegram integration
     TELEGRAM_BOT_TOKEN: str | None = os.environ.get("TELEGRAM_BOT_TOKEN")
     TELEGRAM_WEBHOOK_URL: str | None = os.environ.get("TELEGRAM_WEBHOOK_URL")
