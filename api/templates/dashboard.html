@@ -3,88 +3,229 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
     <title>Appointments dashboard</title>
-    <style>
-      :root { color-scheme: light; font-family: Georgia, serif; background: #f3f0e8; color: #18302b; }
-      body { margin: 0; min-height: 100vh; background: radial-gradient(circle at top right, #e7c995, transparent 40%), #f3f0e8; }
-      main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0; }
-      h1 { font-size: clamp(2.5rem, 7vw, 5.8rem); line-height: .9; margin: 0 0 32px; max-width: 720px; }
-      h2 { font-size: 1.5rem; margin: 0 0 12px; }
-      .panel { background: #fffdf7; border: 1px solid #d8d2c3; padding: 24px; box-shadow: 8px 8px 0 #c9d8cb; }
-      form { display: flex; gap: 12px; max-width: 560px; }
-      input, button { font: inherit; padding: 12px 14px; border: 1px solid #18302b; }
-      input { flex: 1; background: #fffdf7; }
-      button { background: #18302b; color: #fffdf7; cursor: pointer; }
-      button:hover { background: #bd4f35; }
+    <script>
+      // Theme: system preference by default, overridable via the toggle (persisted in localStorage).
+      (function () {
+        const stored = localStorage.getItem("appointments-dashboard-theme");
+        const theme = stored === "dark" || stored === "light"
+          ? stored
+          : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.classList.toggle("dark", theme === "dark");
+      })();
+    </script>
+    <!--
+      Retro Arcade theme (Solarized) from tweakcn.com/editor/theme?theme=retro-arcade
+      Tailwind CSS via Play CDN + shadcn/ui-style CSS-variable tokens.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              border: "hsl(var(--border))",
+              input: "hsl(var(--input))",
+              ring: "hsl(var(--ring))",
+              background: "hsl(var(--background))",
+              foreground: "hsl(var(--foreground))",
+              primary: { DEFAULT: "hsl(var(--primary))", foreground: "hsl(var(--primary-foreground))" },
+              secondary: { DEFAULT: "hsl(var(--secondary))", foreground: "hsl(var(--secondary-foreground))" },
+              destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
+              muted: { DEFAULT: "hsl(var(--muted))", foreground: "hsl(var(--muted-foreground))" },
+              accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
+              popover: { DEFAULT: "hsl(var(--popover))", foreground: "hsl(var(--popover-foreground))" },
+              card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
+            },
+            borderRadius: {
+              lg: "var(--radius)",
+              md: "calc(var(--radius) - 2px)",
+              sm: "calc(var(--radius) - 4px)",
+            },
+            fontFamily: {
+              //display: ['"Press Start 2P"', "monospace"],
+              //mono: ["VT323", "monospace"],
+            },
+          },
+        },
+      };
+    </script>
+    <style type="text/tailwindcss">
+      :root {
+        --background: 45 86% 94%;
+        --foreground: 192 81% 14%;
+        --card: 44 42% 88%;
+        --card-foreground: 192 81% 14%;
+        --popover: 44 42% 88%;
+        --popover-foreground: 192 81% 14%;
+        --primary: 331 64% 52%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 175 59% 40%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 44 42% 88%;
+        --muted-foreground: 195 14% 40%;
+        --accent: 18 81% 44%;
+        --accent-foreground: 0 0% 100%;
+        --destructive: 1 71% 52%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 180 7% 60%;
+        --input: 180 7% 60%;
+        --ring: 331 64% 52%;
+        --chart-1: 205 69% 49%;
+        --chart-2: 175 59% 40%;
+        --chart-3: 331 64% 52%;
+        --chart-4: 18 81% 44%;
+        --chart-5: 1 71% 52%;
+        --radius: 0.25rem;
+        --black: 0 0% 0%;
+      }
+      .dark {
+        --background: 192 100% 11%;
+        --foreground: 180 7% 60%;
+        --card: 192 81% 14%;
+        --card-foreground: 180 7% 60%;
+        --popover: 192 81% 14%;
+        --popover-foreground: 180 7% 60%;
+        --primary: 331 64% 52%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 175 59% 40%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 195 14% 40%;
+        --muted-foreground: 180 7% 60%;
+        --accent: 18 81% 44%;
+        --accent-foreground: 0 0% 100%;
+        --destructive: 1 71% 52%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 195 14% 40%;
+        --input: 195 14% 40%;
+        --ring: 331 64% 52%;
+        --chart-1: 205 69% 49%;
+        --chart-2: 175 59% 40%;
+        --chart-3: 331 64% 52%;
+        --chart-4: 18 81% 44%;
+        --chart-5: 1 71% 52%;
+      }
+      @layer base {
+        * { @apply border-border; }
+        body { @apply bg-background text-foreground font-mono; }
+      }
+      @layer components {
+        .card { @apply rounded-lg border-2 border-border bg-card text-card-foreground shadow-[4px_4px_0_hsl(var(--black)/.2)]; }
+        .btn { @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-border bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-[3px_3px_0_hsl(var(--black)/.2)] transition-transform hover:-translate-y-0.5 hover:bg-[hsl(var(--primary)/0.9)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50; }
+        .btn-outline { @apply bg-transparent text-foreground shadow-[3px_3px_0_hsl(var(--black)/.2)] hover:bg-muted; }
+        .btn-ghost { @apply border-transparent bg-transparent text-foreground shadow-none hover:bg-muted hover:text-foreground; }
+        .input { @apply flex h-10 w-full rounded-md border-2 border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+        .tabs-list { @apply inline-flex items-center justify-center gap-1 rounded-md border-2 border-border bg-muted p-1 shadow-[3px_3px_0_hsl(var(--black)/.2)]; }
+        .tab { @apply inline-flex cursor-pointer items-center justify-center rounded px-3 py-1.5 text-sm font-bold text-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+        .tab.active { @apply bg-primary text-primary-foreground shadow-[2px_2px_0_hsl(var(--black)/.2)] hover:bg-primary hover:text-primary-foreground; }
+        .view-tab { @apply inline-flex cursor-pointer items-center justify-center rounded px-3 py-1.5 text-sm font-bold text-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring; }
+        .view-tab.active { @apply bg-primary text-primary-foreground shadow-[2px_2px_0_hsl(var(--black)/.2)] hover:bg-primary hover:text-primary-foreground; }
+        .badge { @apply inline-flex items-center rounded border-2 border-border px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-foreground; }
+        .stat-card { @apply rounded-lg border-2 border-border bg-card p-4 shadow-[4px_4px_0_hsl(var(--black)/.2)]; }
+      }
       #app { display: none; }
-      .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
-      .toolbar button { background: transparent; color: #18302b; }
-      .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
-      .stat { border-top: 4px solid #bd4f35; padding: 14px; background: #dfe9dc; }
-      .stat strong { display: block; font-size: 2rem; }
-      .view-toggle { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 20px; background: #dfe9dc; }
-      .view-toggle button { border: 0; background: transparent; color: #18302b; }
-      .view-toggle button.active { background: #18302b; color: #fffdf7; }
-      .table-panel { background: #fffdf7; border: 1px solid #d8d2c3; padding: 24px; box-shadow: 8px 8px 0 #c9d8cb; }
-      .tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 20px; border-bottom: 1px solid #d8d2c3; }
-      .tab { flex: 0 0 auto; border: 0; border-bottom: 4px solid transparent; background: transparent; color: #18302b; padding: 12px 14px; }
-      .tab:hover, .tab.active { background: #dfe9dc; border-bottom-color: #bd4f35; }
+      #error { min-height: 1.4em; color: hsl(var(--destructive)); }
+      body::before {
+        content: "";
+        position: fixed; inset: 0; pointer-events: none; z-index: 0;
+        background:
+          linear-gradient(hsl(var(--primary) / 0.06) 1px, transparent 1px),
+          linear-gradient(90deg, hsl(var(--primary) / 0.06) 1px, transparent 1px);
+        background-size: 32px 32px;
+      }
+      main { position: relative; z-index: 1; }
       .table-wrap { overflow-x: auto; }
-      .calendar-panel { background: #fffdf7; border: 1px solid #d8d2c3; padding: 24px; box-shadow: 8px 8px 0 #c9d8cb; }
-      .calendar-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-      .calendar-toolbar h2 { margin: 0; }
-      .calendar-toolbar button { padding: 8px 12px; }
-      .calendar-actions { display: flex; gap: 6px; }
-      .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(100px, 1fr)); border-top: 1px solid #d8d2c3; border-left: 1px solid #d8d2c3; min-width: 700px; }
-      .weekday { padding: 10px 8px; color: #bd4f35; font: 700 .75rem ui-sans-serif, sans-serif; text-transform: uppercase; letter-spacing: .08em; border-right: 1px solid #d8d2c3; border-bottom: 1px solid #d8d2c3; }
-      .calendar-day { min-height: 118px; padding: 8px; border-right: 1px solid #d8d2c3; border-bottom: 1px solid #d8d2c3; background: #fffdf7; }
-      .calendar-day.outside { background: #f3f0e8; color: #8d938b; }
-      .calendar-day.today { box-shadow: inset 0 4px #bd4f35; }
-      .day-number { display: block; margin-bottom: 7px; font: 700 .85rem ui-sans-serif, sans-serif; }
-      .calendar-event { display: block; overflow: hidden; margin-bottom: 4px; padding: 4px 5px; border-left: 3px solid #3f7668; background: #dfe9dc; font: .74rem ui-sans-serif, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
-      .calendar-event.blocked { border-left-color: #bd4f35; background: #f1ded5; }
-      .calendar-scroll { overflow-x: auto; }
-      table { width: 100%; border-collapse: collapse; font-family: ui-sans-serif, sans-serif; font-size: .9rem; }
-      th, td { padding: 9px 6px; border-bottom: 1px solid #d8d2c3; text-align: left; vertical-align: top; }
-      th { color: #bd4f35; }
-      #error { color: #bd4f35; min-height: 1.4em; }
-      @media (max-width: 580px) { main { padding: 24px 0; } form { flex-direction: column; } .panel { padding: 16px; } }
+      table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+      th, td { padding: 9px 6px; border-bottom: 1px solid hsl(var(--border)); text-align: left; vertical-align: top; }
+      th { color: hsl(var(--primary)); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem; }
+      .calendar-toolbar button { @apply btn btn-outline px-3 py-1.5; }
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(100px, 1fr));
+        border-top: 1px solid hsl(var(--border));
+        border-left: 1px solid hsl(var(--border));
+        min-width: 700px;
+        overflow: hidden;
+        border-radius: var(--radius);
+        background: hsl(var(--card));
+      }
+      .weekday {
+        padding: 10px 8px; color: hsl(var(--primary));
+        font: 700 0.7rem ui-sans-serif, sans-serif;
+        text-transform: uppercase; letter-spacing: 0.08em;
+        border-right: 1px solid hsl(var(--border)); border-bottom: 1px solid hsl(var(--border));
+      }
+      .calendar-day {
+        min-height: 118px; padding: 8px;
+        border-right: 1px solid hsl(var(--border)); border-bottom: 1px solid hsl(var(--border));
+        background: hsl(var(--card));
+      }
+      .calendar-day.outside { background: hsl(var(--background)); color: hsl(var(--muted-foreground)); opacity: 0.6; }
+      .calendar-day.today { box-shadow: inset 0 4px hsl(var(--primary)); }
+      .day-number { display: block; margin-bottom: 7px; color: hsl(var(--foreground)); }
+      .calendar-event {
+        display: block; overflow: hidden; margin-bottom: 4px; padding: 3px 5px;
+        border-left: 3px solid hsl(var(--secondary));
+        background: hsl(var(--secondary) / 0.2);
+        color: hsl(var(--foreground));
+        font-size: 0.7rem;
+        text-overflow: ellipsis; white-space: nowrap;
+      }
+      .calendar-event.blocked { border-left-color: hsl(var(--destructive)); background: hsl(var(--destructive) / 0.18); }
     </style>
   </head>
-  <body>
-    <main>
-      <section id="login" class="panel">
-        <p>PRIVATE VIEW / APPOINTMENTS</p>
-        <h1>See the whole calendar clearly.</h1>
-        <form id="login-form">
-          <input id="key" type="password" placeholder="Dashboard key" autocomplete="current-password" required>
-          <button type="submit">Open dashboard</button>
+  <body class="min-h-screen">
+    <main class="mx-auto w-full max-w-[1180px] px-4 py-12 sm:py-16">
+      <section id="login" class="card mx-auto max-w-md p-8 text-center">
+        <p class="font-display text-[15px] tracking-widest text-accent">▲ micro-appointments ▲</p>
+        <h1 class="mt-6 font-mono text-[clamp(2rem,7vw,3.2rem)] leading-none text-foreground">See the whole calendar clearly.</h1>
+        <form id="login-form" class="mt-8 flex flex-col gap-3 text-left">
+          <label for="key" class="text-xs font-bold uppercase tracking-wider text-muted-foreground"></label>
+          <input id="key" class="input" type="password" placeholder="Dashboard key" autocomplete="current-password" required>
+          <button type="submit" class="btn w-full">Open dashboard</button>
         </form>
-        <p id="error" role="alert"></p>
+        <p id="error" class="mt-3" role="alert"></p>
       </section>
       <section id="app">
-        <div class="toolbar"><div><h2>Dashboard</h2><span id="role" style="display:none"></span></div><button id="logout">Log out</button></div>
-        <div id="stats" class="stats"></div>
-        <div class="view-toggle" role="tablist" aria-label="Dashboard views">
-          <button class="active" data-view="table" role="tab" aria-selected="true">Table</button>
-          <button data-view="calendar" role="tab" aria-selected="false">Calendar</button>
+        <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <h2 class="font-display text-xl tracking-wider text-foreground">Dashboard</h2>
+            <span id="role" class="badge" style="display:none"></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="theme-toggle" class="btn btn-outline" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+              <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+              <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            </button>
+            <button id="logout" class="btn btn-outline" type="button">Log out</button>
+          </div>
         </div>
-        <section id="table-view" class="table-panel">
-          <nav id="table-tabs" class="tabs" aria-label="Dashboard data views"></nav>
+        <div id="stats" class="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"></div>
+        <div class="view-toggle tabs-list mb-5" role="tablist" aria-label="Dashboard views">
+          <button class="view-tab active" data-view="table" role="tab" aria-selected="true">Table</button>
+          <button class="view-tab" data-view="calendar" role="tab" aria-selected="false">Calendar</button>
+        </div>
+        <section id="table-view" class="card p-5 sm:p-6">
+          <nav id="table-tabs" class="tabs mb-5 flex gap-2 overflow-x-auto border-b-2 pb-3" aria-label="Dashboard data views"></nav>
           <div class="table-wrap">
             <table><thead id="table-head"></thead><tbody id="table-body"></tbody></table>
           </div>
         </section>
-        <section id="calendar-view" class="calendar-panel" hidden>
-          <div class="calendar-toolbar">
-            <h2 id="calendar-title"></h2>
-            <div class="calendar-actions">
-              <button id="previous-month" aria-label="Previous month" title="Previous month">&#8592;</button>
-              <button id="today" aria-label="Go to today">Today</button>
-              <button id="next-month" aria-label="Next month" title="Next month">&#8594;</button>
+        <section id="calendar-view" class="card p-5 sm:p-6" hidden>
+          <div class="calendar-toolbar mb-5 flex flex-wrap items-center justify-between gap-3">
+            <h2 id="calendar-title" class="font-mono text-lg text-foreground"></h2>
+            <div class="flex gap-2">
+              <button id="previous-month" class="btn-outline" aria-label="Previous month" title="Previous month">&#8592;</button>
+              <button id="today" class="btn-outline" aria-label="Go to today">Today</button>
+              <button id="next-month" class="btn-outline" aria-label="Next month" title="Next month">&#8594;</button>
             </div>
           </div>
-          <div class="calendar-scroll"><div id="calendar-grid" class="calendar-grid"></div></div>
+          <div class="calendar-scroll overflow-x-auto"><div id="calendar-grid" class="calendar-grid"></div></div>
         </section>
       </section>
     </main>
@@ -164,7 +305,7 @@
         if (!response.ok) { localStorage.removeItem(tokenKey); login.style.display = "block"; app.style.display = "none"; return; }
         dashboardData = await response.json();
         login.style.display = "none"; app.style.display = "block"; document.querySelector("#role").textContent = dashboardData.role;
-        document.querySelector("#stats").innerHTML = Object.entries({Users: dashboardData.users.length, Appointments: dashboardData.appointments.length, Customers: dashboardData.customers.length, "Blocked times": dashboardData.blocked_times.length}).map(([label, value]) => `<div class="stat"><span>${label}</span><strong>${value}</strong></div>`).join("");
+        document.querySelector("#stats").innerHTML = Object.entries({Users: dashboardData.users.length, Appointments: dashboardData.appointments.length, Customers: dashboardData.customers.length, "Blocked times": dashboardData.blocked_times.length}).map(([label, value]) => `<div class="stat-card"><span class="block text-xs font-bold uppercase tracking-wider text-muted-foreground">${label}</span><strong class="mt-1 block text-4xl leading-none text-primary">${value}</strong></div>`).join("");
         renderTable();
         renderView("table");
       }
@@ -173,6 +314,29 @@
       document.querySelector("#next-month").addEventListener("click", () => { calendarMonth.setMonth(calendarMonth.getMonth() + 1); renderCalendar(); });
       document.querySelector("#today").addEventListener("click", () => { calendarMonth = new Date(); renderCalendar(); });
       document.querySelector("#login-form").addEventListener("submit", async event => { event.preventDefault(); error.textContent = ""; const response = await fetch("/dashboard/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({key: document.querySelector("#key").value})}); if (!response.ok) { error.textContent = "That key was not accepted."; return; } const data = await response.json(); localStorage.setItem(tokenKey, data.token); await loadDashboard(); });
+      const themeToggle = document.querySelector("#theme-toggle");
+      const themeIconSun = document.querySelector("#theme-icon-sun");
+      const themeIconMoon = document.querySelector("#theme-icon-moon");
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+      const themeKey = "appointments-dashboard-theme";
+      const currentTheme = () => {
+        const stored = localStorage.getItem(themeKey);
+        return stored === "dark" || stored === "light" ? stored : (systemTheme.matches ? "dark" : "light");
+      };
+      const applyTheme = theme => {
+        document.documentElement.classList.toggle("dark", theme === "dark");
+        themeIconSun.style.display = theme === "dark" ? "none" : "block";
+        themeIconMoon.style.display = theme === "dark" ? "block" : "none";
+      };
+      themeToggle.addEventListener("click", () => {
+        const next = currentTheme() === "dark" ? "light" : "dark";
+        localStorage.setItem(themeKey, next);
+        applyTheme(next);
+      });
+      systemTheme.addEventListener("change", event => {
+        if (!localStorage.getItem(themeKey)) applyTheme(event.matches ? "dark" : "light");
+      });
+      applyTheme(currentTheme());
       document.querySelector("#logout").addEventListener("click", async () => { await fetch("/dashboard/logout", {method: "POST", headers: {Authorization: `Bearer ${token()}`}}); localStorage.removeItem(tokenKey); app.style.display = "none"; login.style.display = "block"; });
       if (token()) loadDashboard();
     </script>
