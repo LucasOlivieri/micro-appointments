@@ -1,3 +1,4 @@
+import importlib
 import logging
 import os
 from collections.abc import Mapping
@@ -18,10 +19,25 @@ class IntegrationFactory:
         return integration_class
 
     @classmethod
+    def _import_enabled_builtins(cls, environ: Mapping[str, str]) -> None:
+        """Import a built-in integration module only if its env flag is enabled.
+
+        Importing a module triggers its ``@IntegrationFactory.register``
+        decorator. Skipping disabled integrations keeps their heavy
+        dependencies (aiogram, openai, google client libraries) unloaded.
+        """
+        for name in ("telegram", "google_calendar"):
+            enabled = environ.get(f"{name.upper()}_ENABLED", "").lower()
+            if enabled not in {"1", "true", "yes", "on"}:
+                continue
+            importlib.import_module(f"integrations.{name}")
+
+    @classmethod
     def create_configured(
         cls, environ: Mapping[str, str] | None = None
     ) -> list[Integration]:
         environment = os.environ if environ is None else environ
+        cls._import_enabled_builtins(environment)
         integrations: list[Integration] = []
         for name, integration_class in cls._registry.items():
             enabled = environment.get(f"{name.upper()}_ENABLED", "").lower()

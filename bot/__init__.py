@@ -1,5 +1,5 @@
-"""OpenAI appointment scheduling agent."""
+"""OpenAI appointment scheduling agent.
 
-from .agent import build_agent, run_agent
-
-__all__ = ["build_agent", "run_agent"]
+``bot.agent`` and ``bot.tools`` are imported lazily by their consumers so the
+OpenAI SDK is only loaded when the agent is actually used.
+"""

@@ -3,9 +3,15 @@ from pathlib import Path
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from api.dependencies import DEFAULT_DATABASE_PATH
-from bot.agent import run_agent
 from bot.handler import build_agent_prompt
 from core.models import User
+
+
+async def run_agent(*args, **kwargs):
+    """Run one agent turn, importing the OpenAI SDK lazily on first use."""
+    from bot.agent import run_agent as _run_agent
+
+    return await _run_agent(*args, **kwargs)
 
 
 async def _resolve_user_id(database_path: Path, user_id: str | None) -> str:

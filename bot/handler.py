@@ -3,8 +3,6 @@ from pathlib import Path
 from string import Template
 from zoneinfo import ZoneInfo
 
-from bot.agent import run_agent
-
 _MESSAGE_TEMPLATE = Template(
     (Path(__file__).parent / "templates" / "message.md").read_text()
 )
@@ -16,6 +14,8 @@ async def handle_agent_message(
     user_id: str | None = None,
 ) -> str:
     """Build the standard prompt and run one agent conversation turn."""
+    from bot.agent import run_agent
+
     return await run_agent(
         build_agent_prompt(message, user_id),
         conversation_id,

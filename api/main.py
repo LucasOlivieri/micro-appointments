@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,7 +16,7 @@ from api.routes.users import create_router as create_users_router
 from config import Config
 from core.db import close_db, init_db
 from core.models import User
-from integrations import Integration, IntegrationFactory
+from integrations.base import Integration
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,6 +36,11 @@ def create_app(
         await init_db(database_path)
         if on_startup:
             await on_startup(database_path)
+
+        # Imported lazily so heavy deps (aiogram, openai) only load when an
+        # integration is actually enabled.
+        from integrations import IntegrationFactory
+
         configured: list[Integration] = IntegrationFactory.create_configured()
         app.state.integrations = configured
         for integration in configured:
