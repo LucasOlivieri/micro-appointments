@@ -307,7 +307,7 @@ class Database:
         with self._connect() as conn:
             cur = conn.execute(sql, list(data.values()))
             conn.commit()
-            return cur.lastrowid  # type: ignore[return-value]
+            return cur.lastrowid  # ty: ignore[invalid-return-type]
 
     def update_row(
         self, table_name: str, pk_col: str, pk_val: Any, data: dict[str, Any]
