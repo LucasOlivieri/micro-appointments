@@ -33,6 +33,6 @@ def build_agent_prompt(
     template = Template(message_template) if message_template else _MESSAGE_TEMPLATE
     return template.substitute(
         user_id=user_id or "not provided",
-        current_time=str(current_time),
+        current_time=current_time.isoformat(),
         message=message,
     )

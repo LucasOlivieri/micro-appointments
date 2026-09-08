@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, Response
 
 from api.admin import mount_sqlite_panel
 from api.dependencies import DEFAULT_DATABASE_PATH
-from api.routes.agent import create_router as create_agent_router
+from api.routes.agent import gradio_chat
 from api.routes.appointments import create_router as create_appointments_router
 from api.routes.dashboard import create_router as create_dashboard_router
 from api.routes.users import create_router as create_users_router
@@ -75,7 +75,6 @@ def create_app(
     )
     app.include_router(create_users_router(database_path))
     app.include_router(create_appointments_router(database_path))
-    app.include_router(create_agent_router(database_path))
     app.state.dashboard_sessions = {}
     app.include_router(create_dashboard_router(database_path))
 
@@ -122,4 +121,4 @@ def create_app(
     return app
 
 
-app = create_app()
+app = gradio_chat(create_app())

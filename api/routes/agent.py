@@ -1,75 +1,52 @@
 from pathlib import Path
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-
 from api.dependencies import DEFAULT_DATABASE_PATH
-from bot.handler import build_agent_prompt
-from core.models import User
+
+_DEFAULT_CONVERSATION_ID = "gradio-chat"
 
 
 async def run_agent(*args, **kwargs):
-    """Run one agent turn, importing the OpenAI SDK lazily on first use."""
     from bot.agent import run_agent as _run_agent
 
     return await _run_agent(*args, **kwargs)
 
 
-async def _resolve_user_id(database_path: Path, user_id: str | None) -> str:
-    user_id = (user_id or "").strip()
-    if user_id:
-        return user_id
+def create_chat(database_path: Path = DEFAULT_DATABASE_PATH):
+    from gradio import ChatInterface, Textbox
 
-    rows = await User.all().order_by("name", "id").values("id")
-    if len(rows) == 1:
-        return str(rows[0]["id"])
-    return ""
-
-
-def create_router(database_path: Path = DEFAULT_DATABASE_PATH) -> APIRouter:
-    router = APIRouter()
-
-    @router.websocket("/ws/agent")
-    async def agent_websocket(websocket: WebSocket):
-        await websocket.accept()
-        try:
-            payload = await websocket.receive_json()
-        except WebSocketDisconnect:
-            return
-        except Exception:
-            await websocket.send_json({"response": "Invalid message payload."})
-            await websocket.close()
-            return
-
-        if not isinstance(payload, dict):
-            await websocket.send_json({"response": "Invalid message payload."})
-            await websocket.close()
-            return
-
-        user_id = await _resolve_user_id(database_path, payload.get("user_id"))
-        user = await User.filter(id=user_id).first() if user_id else None
-        timezone = user.timezone if user else None
-        message_template = user.message if user else None
-        system_prompt = user.system_prompt if user else None
-        message = str(payload.get("message", ""))
-        conversation_id = str(payload.get("conversation_id") or "ws-default")
-
+    async def chat(message: str, history: list, conversation_id: str) -> str:
         if not message or not message.strip():
-            await websocket.send_json({"response": "Please enter a request."})
-            await websocket.close()
-            return
-
+            return "Please enter a request."
+        cid = conversation_id.strip() if conversation_id else _DEFAULT_CONVERSATION_ID
         try:
-            prompt = build_agent_prompt(message, user_id, timezone, message_template)
-            if system_prompt:
-                response = await run_agent(
-                    prompt, conversation_id, system_prompt=system_prompt
-                )
-            else:
-                response = await run_agent(prompt, conversation_id)
+            return await run_agent(message, cid)
         except Exception as error:
-            response = f"Unable to reach the appointment agent: {error}"
+            return f"Unable to reach the appointment agent: {error}"
 
-        await websocket.send_json({"response": response})
-        await websocket.close()
+    return ChatInterface(
+        fn=chat,
+        title="Appointment Agent",
+        description="Ask for available slots, schedule an appointment, "
+        "or move an existing one.",
+        additional_inputs=[
+            Textbox(
+                label="Conversation ID (optional)",
+                placeholder=_DEFAULT_CONVERSATION_ID,
+            )
+        ],
+        examples=[
+            ["Hola, quiero un turno"],
+            ["Quiero un turno con Lucas"],
+            ["¿Qué horarios tenés disponible?"],
+        ],
+    )
 
-    return router
+
+def gradio_chat(app):
+    from gradio.routes import mount_gradio_app
+
+    return mount_gradio_app(
+        app,
+        create_chat(),
+        path="/chat",
+    )
