@@ -22,6 +22,7 @@ A small scheduling app for managing doctors or staff calendars, appointment type
 - FastAPI endpoints for listing users and scheduling appointments
 - Agent tooling for an LLM-style assistant to operate the calendar
 - Telegram webhook integration for the receptionist assistant
+- Discord bot integration for the receptionist assistant
 - Google Calendar integration for syncing booked appointments
 
 ## Project structure
@@ -158,6 +159,32 @@ The application registers the webhook during startup and removes it during shutd
 All Telegram chats use the same receptionist agent. The agent determines which
 appointment user applies based on the conversation. Invalid Telegram configuration or
 startup failures are logged without preventing the API from starting.
+
+### Discord integration
+
+Discord is disabled by default. To enable it, configure the following environment
+variables before starting the API:
+
+```text
+DISCORD_ENABLED=true
+DISCORD_BOT_TOKEN=your-bot-token
+```
+
+The bot uses the `message_content` intent to read messages and responds in the
+same channel using the shared receptionist agent. It shows a typing indicator
+while the agent is processing. Each channel+author pair gets its own conversation
+session.
+
+To set up the bot:
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Create a new application and navigate to the **Bot** section.
+3. Under **Privileged Gateway Intents**, enable **Message Content Intent**.
+4. Copy the bot token and set it as `DISCORD_BOT_TOKEN`.
+5. Invite the bot to your server using the OAuth2 URL generator with `bot` scope and `Send Messages` + `Read Message History` permissions.
+
+Invalid Discord configuration or startup failures are logged without preventing
+the API from starting.
 
 ### Google Calendar integration
 
