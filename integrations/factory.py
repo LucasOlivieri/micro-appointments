@@ -26,7 +26,7 @@ class IntegrationFactory:
         decorator. Skipping disabled integrations keeps their heavy
         dependencies (aiogram, openai, google client libraries) unloaded.
         """
-        for name in ("telegram", "google_calendar"):
+        for name in ("telegram", "google_calendar", "discord"):
             enabled = environ.get(f"{name.upper()}_ENABLED", "").lower()
             if enabled not in {"1", "true", "yes", "on"}:
                 continue
