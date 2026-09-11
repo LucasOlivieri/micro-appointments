@@ -56,7 +56,7 @@ def mount_sqlite_panel(
         name="sqlite_panel_static",
     )
 
-    app.include_router(router, prefix=prefix)
+    app.include_router(router, prefix=prefix, include_in_schema=False)
 
 
 def run_panel(

@@ -76,7 +76,7 @@ def create_app(
     app.include_router(create_users_router(database_path))
     app.include_router(create_appointments_router(database_path))
     app.state.dashboard_sessions = {}
-    app.include_router(create_dashboard_router(database_path))
+    app.include_router(create_dashboard_router(database_path), include_in_schema=False)
 
     @app.post("/integrations/telegram/webhook")
     async def telegram_webhook(request: Request) -> Response:
