@@ -28,6 +28,18 @@ async def seed_block(path):
     )
 
 
+async def seed_advance_notice_type(path):
+    service = AppointmentsService(path)
+    await service.create_appointment_type(
+        {
+            "user_id": API_USER_ID,
+            "name": "Advance Notice Type",
+            "duration_minutes": 30,
+            "advance_notice_minutes": 1440,
+        }
+    )
+
+
 async def test_create_and_list_appointment(api):
     response = api.post("/appointments", json=appointment_payload("follow-up"))
 
@@ -247,16 +259,7 @@ async def test_missing_user_is_not_created_implicitly(single_user_api):
 async def test_advance_notice_rejects_early_booking(api, tmp_path):
     """Booking a slot within the advance notice window should return 422."""
     # Create an appointment type with a 1440 min (24h) advance notice
-    path = tmp_path / "api.sqlite3"
-    service = AppointmentsService(path)
-    await service.create_appointment_type(
-        {
-            "user_id": API_USER_ID,
-            "name": "Advance Notice Type",
-            "duration_minutes": 30,
-            "advance_notice_minutes": 1440,
-        }
-    )
+    api.portal.call(seed_advance_notice_type, tmp_path / "api.sqlite3")
     # Try to book a slot 1 hour from now — should be rejected
     soon = (
         datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")) + timedelta(hours=1)
@@ -270,16 +273,7 @@ async def test_advance_notice_rejects_early_booking(api, tmp_path):
 
 async def test_advance_notice_allows_future_booking(api, tmp_path):
     """Booking a slot well past the deadline should succeed."""
-    path = tmp_path / "api.sqlite3"
-    service = AppointmentsService(path)
-    await service.create_appointment_type(
-        {
-            "user_id": API_USER_ID,
-            "name": "Advance Notice Type",
-            "duration_minutes": 30,
-            "advance_notice_minutes": 1440,
-        }
-    )
+    api.portal.call(seed_advance_notice_type, tmp_path / "api.sqlite3")
     payload = appointment_payload(appointment_type="Advance Notice Type")
     payload["start"] = "2026-09-28T10:00:00-03:00"
     response = api.post("/appointments", json=payload)
