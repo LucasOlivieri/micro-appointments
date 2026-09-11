@@ -41,6 +41,7 @@ class AppointmentType(Model):
     user_id: str
     name: str = fields.CharField(max_length=255)
     duration_minutes: int = fields.IntField()
+    advance_notice_minutes: int | None = fields.IntField(null=True)
 
     class Meta:
         table = "appointment_types"

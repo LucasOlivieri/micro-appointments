@@ -19,7 +19,8 @@
                     "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",
                     "id": 1,
                     "name": "Initial Consultation",
-                    "duration_minutes": 30
+                    "duration_minutes": 30,
+                    "advance_notice_minutes": 1440
                 },
                 {
                     "user": "595b6fb0-bef2-4a55-a122-34ab5e8bcc77",

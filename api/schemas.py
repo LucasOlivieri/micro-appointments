@@ -46,6 +46,7 @@ class DailyAvailability(BaseModel):
 class AvailableAppointmentType(BaseModel):
     name: str
     duration_minutes: int
+    advance_notice_minutes: int | None = None
 
 
 class User(BaseModel):

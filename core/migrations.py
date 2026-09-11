@@ -167,6 +167,16 @@ async def migration_add_user_prompt_columns(connection: BaseDBAsyncClient) -> No
         )
 
 
+async def migration_add_advance_notice(connection: BaseDBAsyncClient) -> None:
+    """Add advance_notice_minutes column to appointment_types table."""
+    if not await _column_exists(
+        connection, "appointment_types", "advance_notice_minutes"
+    ):
+        await connection.execute_script(
+            'ALTER TABLE appointment_types ADD COLUMN "advance_notice_minutes" INTEGER;'
+        )
+
+
 _MIGRATIONS = [
     ("001_create_tables", migration_create_tables),
     ("002_add_booking_columns", migration_add_booking_columns),
@@ -175,6 +185,7 @@ _MIGRATIONS = [
     ("005_add_google_event_id_column", migration_add_google_event_id_column),
     ("006_drop_customer_fk", migration_drop_customer_fk),
     ("007_add_user_prompt_columns", migration_add_user_prompt_columns),
+    ("008_add_advance_notice", migration_add_advance_notice),
 ]
 
 
@@ -246,6 +257,9 @@ async def sync_config_to_db(config_path: str | Path | None = None) -> None:
                 "user_id": user["id"],
                 "name": appointment_type.get("name"),
                 "duration_minutes": appointment_type.get("duration_minutes"),
+                "advance_notice_minutes": appointment_type.get(
+                    "advance_notice_minutes"
+                ),
             }
             appointment_id = appointment_type.get("id")
             if appointment_id is None:

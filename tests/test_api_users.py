@@ -8,8 +8,12 @@ async def test_available_appointment_types_are_listed_for_user(api):
 
     assert response.status_code == 200
     assert response.json() == [
-        {"name": "Follow-up", "duration_minutes": 15},
-        {"name": "Initial Consultation", "duration_minutes": 30},
+        {"name": "Follow-up", "duration_minutes": 15, "advance_notice_minutes": None},
+        {
+            "name": "Initial Consultation",
+            "duration_minutes": 30,
+            "advance_notice_minutes": None,
+        },
     ]
 
 
@@ -60,8 +64,16 @@ async def test_users_lists_calendar_users(api):
         "name": "API User",
         "timezone": API_TIMEZONE,
         "available_appointment_types": [
-            {"name": "Follow-up", "duration_minutes": 15},
-            {"name": "Initial Consultation", "duration_minutes": 30},
+            {
+                "name": "Follow-up",
+                "duration_minutes": 15,
+                "advance_notice_minutes": None,
+            },
+            {
+                "name": "Initial Consultation",
+                "duration_minutes": 30,
+                "advance_notice_minutes": None,
+            },
         ],
     }
     assert [user["name"] for user in users] == sorted(user["name"] for user in users)

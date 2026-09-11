@@ -1,6 +1,6 @@
 """Unit tests for all functions in src/main.py."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -480,6 +480,43 @@ class TestGetNextFreeSlots:
                 nr_slots=1,
             )
 
+    def test_advance_notice_filters_recent_slots(self, user):
+        """Slots before the advance notice deadline should be excluded."""
+        user["appointment_types"] = [
+            {
+                "name": "Follow-up",
+                "duration_minutes": 15,
+                "advance_notice_minutes": 1440,
+            },
+        ]
+        # from_datetime is now, so all slots today are within the 1440 min deadline
+        slots = get_next_free_slots(
+            user,
+            appointment_type="Follow-up",
+            nr_slots=3,
+            from_datetime=datetime.now(TZ),
+        )
+        # All returned slots should start after the deadline
+        deadline = datetime.now(TZ) + timedelta(minutes=1440)
+        for slot in slots:
+            start = datetime.fromisoformat(slot["start"])
+            assert (
+                start >= deadline
+            ), f"Slot {slot['start']} is before deadline {deadline}"
+
+    def test_advance_notice_no_filter_when_null(self, user):
+        """When advance_notice_minutes is None, all slots should be returned."""
+        slots = get_next_free_slots(
+            user,
+            appointment_type="Follow-up",
+            nr_slots=3,
+            from_datetime=datetime(2026, 8, 24, 9, 0, tzinfo=TZ),
+        )
+        assert len(slots) == 3
+        # First slot should be at 09:00
+        start0 = datetime.fromisoformat(slots[0]["start"])
+        assert start0.hour == 9 and start0.minute == 0
+
 
 # ===================================================================
 # book_appointment
@@ -630,6 +667,57 @@ class TestBookAppointment:
                 "phone": None,
             }
         ]
+
+    # ------------------------------------------------------------------
+    # Advance booking deadline
+    # ------------------------------------------------------------------
+
+    async def test_advance_notice_rejects_early_booking(self, user):
+        """Booking a slot that starts before the deadline should be rejected."""
+        user["appointment_types"] = [
+            {
+                "name": "Follow-up",
+                "duration_minutes": 15,
+                "advance_notice_minutes": 1440,
+            },
+        ]
+        # Try to book for a slot 1 hour from now — 1440 min deadline should reject it
+        soon = (datetime.now(TZ) + timedelta(hours=1)).isoformat()
+        with pytest.raises(ValueError, match="at least 1440 minutes in advance"):
+            await book_appointment(
+                user,
+                "Follow-up",
+                soon,
+            )
+
+    async def test_advance_notice_allows_valid_booking(self, user):
+        """Booking a slot well past the deadline should succeed."""
+        user["appointment_types"] = [
+            {
+                "name": "Follow-up",
+                "duration_minutes": 15,
+                "advance_notice_minutes": 1440,
+            },
+        ]
+        # Book for a date far in the future (past the 1440 min deadline)
+        future = "2026-09-28T10:00:00-03:00"
+        booking = await book_appointment(
+            user,
+            "Follow-up",
+            future,
+        )
+        assert booking["reason"] == "booked"
+        assert booking["start"] == future
+
+    async def test_advance_notice_no_restriction_when_null(self, user):
+        """When advance_notice_minutes is None, booking should work as before."""
+        # The default user fixture has no advance_notice_minutes
+        booking = await book_appointment(
+            user,
+            "Follow-up",
+            "2026-08-24T10:00:00-03:00",
+        )
+        assert booking["reason"] == "booked"
 
     async def test_reloaded_user_sees_persisted_booking(self, user):
         service = AppointmentsService(main_module.DATABASE_PATH)

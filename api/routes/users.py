@@ -30,6 +30,9 @@ def create_router(database_path: Path) -> APIRouter:
                         {
                             "name": appointment_type["name"],
                             "duration_minutes": appointment_type["duration_minutes"],
+                            "advance_notice_minutes": appointment_type.get(
+                                "advance_notice_minutes"
+                            ),
                         }
                         for appointment_type in appointment_types
                     ],
@@ -52,6 +55,9 @@ def create_router(database_path: Path) -> APIRouter:
             {
                 "name": appointment_type["name"],
                 "duration_minutes": appointment_type["duration_minutes"],
+                "advance_notice_minutes": appointment_type.get(
+                    "advance_notice_minutes"
+                ),
             }
             for appointment_type in user["appointment_types"]
         ]

@@ -76,6 +76,7 @@ def _serialize_appointment_type(item: AppointmentType) -> dict:
         "user": item.user_id,
         "name": item.name,
         "duration_minutes": item.duration_minutes,
+        "advance_notice_minutes": item.advance_notice_minutes,
     }
 
 
@@ -392,6 +393,12 @@ class AppointmentsService:
         from_datetime = from_datetime.astimezone(tz)
         day = from_datetime.date()
 
+        # Compute the earliest allowed booking time based on advance notice
+        advance_minutes = appt.get("advance_notice_minutes")
+        earliest_allowed = None
+        if advance_minutes is not None:
+            earliest_allowed = datetime.now(tz) + timedelta(minutes=advance_minutes)
+
         for _ in range(366):
             if len(slots) >= nr_slots:
                 break
@@ -404,6 +411,10 @@ class AppointmentsService:
                     if current >= from_datetime and not self.is_blocked(
                         user, current, slot_end
                     ):
+                        # Skip slots that violate the advance booking deadline
+                        if earliest_allowed is not None and current < earliest_allowed:
+                            current += duration
+                            continue
                         slots.append(
                             {
                                 "start": current.isoformat(),
@@ -462,9 +473,22 @@ class AppointmentsService:
         working_start, working_end = working_hours
         slots = []
         current = working_start
+
+        # Compute the earliest allowed booking time based on advance notice
+        advance_minutes = appt.get("advance_notice_minutes")
+        earliest_allowed = None
+        if advance_minutes is not None:
+            earliest_allowed = datetime.now(timezone) + timedelta(
+                minutes=advance_minutes
+            )
+
         while current + duration <= working_end:
             slot_end = current + duration
             if not self.is_blocked(user, current, slot_end):
+                # Skip slots that violate the advance booking deadline
+                if earliest_allowed is not None and current < earliest_allowed:
+                    current += duration
+                    continue
                 slots.append(
                     {
                         "start": current.isoformat(),
@@ -502,6 +526,17 @@ class AppointmentsService:
             start = start.replace(tzinfo=tz)
         else:
             start = start.astimezone(tz)
+
+        # Enforce advance booking deadline if set
+        advance_minutes = appt.get("advance_notice_minutes")
+        if advance_minutes is not None:
+            now = datetime.now(tz)
+            deadline = now + timedelta(minutes=advance_minutes)
+            if start < deadline:
+                raise ValueError(
+                    f"Appointments must be booked at least {advance_minutes} minutes "
+                    "in advance"
+                )
 
         end = start + duration
         await self._refresh_database_blocked_times(user, exclude_start)
