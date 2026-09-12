@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from core.db import get_db, get_query
 
 
@@ -17,11 +19,14 @@ class BaseRepository:
     def _row_to_model(self, row):
         if row is None:
             return None
+        cls = self.model_class
+        if cls is None:
+            raise NotImplementedError("Repository model_class is not configured.")
         data = dict(row)
         for db_col, model_field in self.column_map.items():
             if db_col in data:
                 data[model_field] = data.pop(db_col)
-        return self.model_class(**data)
+        return cls(**data)
 
     def _map_payload(self, payload: dict) -> dict:
         """Reverse map: model field names -> DB column names."""
@@ -96,7 +101,7 @@ class BaseRepository:
     async def update_or_create(self, **kwargs):
         raise NotImplementedError("Use a specific upsert method instead.")
 
-    async def list_by_ids(self, ids: list):
+    async def list_by_ids(self, ids: Sequence[str]):
         if not ids:
             return []
         placeholders = ",".join("?" for _ in ids)
