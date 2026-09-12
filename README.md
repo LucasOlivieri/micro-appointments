@@ -1,11 +1,3 @@
-## Read-only dashboard
-
-Open `/dashboard` on the API host to use the read-only dashboard. Configure the
-admin login with `DASHBOARD_SUPERUSER_KEY` in `.env`. A user logs in with the
-existing user's `id` as the key. Admins see all stored data; user logins only
-see their own calendar and related customers. Dashboard sessions are held in
-memory and are lost when the API restarts.
-
 # Micro Appointments
 
 A small scheduling app for managing doctors or staff calendars, appointment types, and booked availability. It uses SQLite via Tortoise ORM as the persistence layer, a FastAPI API for interacting with the calendar, and configuration-driven user setup.
@@ -227,6 +219,14 @@ maintenance, and other blocked-time ranges are ignored.
 
 Invalid configuration or API failures are logged without preventing the API
 from starting.
+
+## Read-only dashboard
+
+Open `/dashboard` on the API host to use the read-only dashboard. Configure the
+admin login with `DASHBOARD_SUPERUSER_KEY` in `.env`. A user logs in with the
+existing user's `id` as the key. Admins see all stored data; user logins only
+see their own calendar and related customers. Dashboard sessions are held in
+memory and are lost when the API restarts.
 
 ## Run tests
 
