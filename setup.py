@@ -40,6 +40,19 @@ DURATION_CHOICES = [
     )
     for duration in range(5, 241, 5)
 ]
+ADVANCE_NOTICE_CHOICES = [
+    questionary.Choice("No restriction", value=None),
+    questionary.Choice("15 minutes", value=15),
+    questionary.Choice("30 minutes", value=30),
+    questionary.Choice("1 hour", value=60),
+    questionary.Choice("2 hours", value=120),
+    questionary.Choice("4 hours", value=240),
+    questionary.Choice("12 hours", value=720),
+    questionary.Choice("24 hours", value=1440),
+    questionary.Choice("48 hours", value=2880),
+    questionary.Choice("72 hours", value=4320),
+    questionary.Choice("1 week", value=10080),
+]
 WEEKDAYS = {
     "monday": 0,
     "tuesday": 1,
@@ -133,6 +146,10 @@ def _appointment_types(user_id):
             "duration_minutes": questionary.select(
                 "How long should this appointment last?",
                 choices=DURATION_CHOICES,
+            ).ask(),
+            "advance_notice_minutes": questionary.select(
+                "How much advance notice is required?",
+                choices=ADVANCE_NOTICE_CHOICES,
             ).ask(),
         }
 
