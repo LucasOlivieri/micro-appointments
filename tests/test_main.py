@@ -50,27 +50,6 @@ async def isolated_database(tmp_path, monkeypatch):
     await close_db()
 
 
-async def test_init_db_enables_global_fallback(monkeypatch):
-    captured = {}
-
-    async def fake_init(*args, **kwargs):
-        captured["kwargs"] = kwargs
-
-    async def fake_apply_migrations():
-        pass
-
-    async def fake_sync_config_to_db():
-        pass
-
-    monkeypatch.setattr("core.db.Tortoise.init", fake_init)
-    monkeypatch.setattr("core.db.apply_migrations", fake_apply_migrations)
-    monkeypatch.setattr("core.db.sync_config_to_db", fake_sync_config_to_db)
-
-    await init_db("test-db.sqlite3")
-
-    assert captured["kwargs"]["_enable_global_fallback"] is True
-
-
 TZ = ZoneInfo("America/Argentina/Buenos_Aires")
 
 

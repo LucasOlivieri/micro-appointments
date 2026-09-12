@@ -14,8 +14,7 @@ from api.routes.appointments import create_router as create_appointments_router
 from api.routes.dashboard import create_router as create_dashboard_router
 from api.routes.users import create_router as create_users_router
 from config import Config
-from core.db import close_db, init_db
-from core.models import User
+from core.db import close_db, get_db, init_db
 from integrations.base import Integration
 
 logging.basicConfig(
@@ -101,7 +100,9 @@ def create_app(
     async def health():
         integrations: list[Integration] = getattr(app.state, "integrations", [])
         try:
-            await User.all().limit(1).values("id")
+            db = get_db()
+            cursor = await db.execute("SELECT id FROM users LIMIT 1")
+            await cursor.fetchone()
         except Exception:
             logger.exception("Health check database query failed")
             return JSONResponse(

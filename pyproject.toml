@@ -21,7 +21,6 @@ dependencies = [
     "python-dateutil>=2.9.0",
     "python-dotenv>=1.0.0",
     "questionary>=2.1.0",
-    "tortoise-orm>=0.25.1",
     "typer==0.27.1",
     "tzlocal>=5.0",
     "uvicorn>=0.30.0",

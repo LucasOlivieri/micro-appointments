@@ -20,7 +20,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from core.models import BlockedTime, User
+from core.db import get_db
 from core.services.appointments import CREATED, DELETED, UPDATED, onaction
 from integrations.base import Integration
 from integrations.factory import IntegrationFactory
@@ -100,8 +100,12 @@ class GoogleCalendarIntegration(Integration):
     async def _get_user_email(self, user_id: str) -> str | None:
         """Return the email for *user_id* from the users table."""
         try:
-            row = await User.filter(id=user_id).first()
-            return row.email if row else None
+            db = get_db()
+            cursor = await db.execute(
+                "SELECT email FROM users WHERE id = ?", (user_id,)
+            )
+            row = await cursor.fetchone()
+            return row["email"] if row else None
         except Exception:
             logger.exception("Failed to look up email for user %s", user_id)
             return None
@@ -109,8 +113,12 @@ class GoogleCalendarIntegration(Integration):
     async def _get_user_timezone(self, user_id: str) -> str | None:
         """Return the timezone for *user_id* from the users table."""
         try:
-            row = await User.filter(id=user_id).first()
-            return row.timezone if row else None
+            db = get_db()
+            cursor = await db.execute(
+                "SELECT timezone FROM users WHERE id = ?", (user_id,)
+            )
+            row = await cursor.fetchone()
+            return row["timezone"] if row else None
         except Exception:
             logger.exception("Failed to look up timezone for user %s", user_id)
             return None
@@ -118,9 +126,12 @@ class GoogleCalendarIntegration(Integration):
     async def _store_event_id(self, blocked_time_id: int, event_id: str) -> None:
         """Persist the Google Calendar event ID on the blocked_times row."""
         try:
-            await BlockedTime.filter(id=blocked_time_id).update(
-                google_event_id=event_id
+            db = get_db()
+            await db.execute(
+                "UPDATE blocked_times SET google_event_id = ? WHERE id = ?",
+                (event_id, blocked_time_id),
             )
+            await db.commit()
         except Exception:
             logger.exception(
                 "Failed to store google_event_id for blocked_time %s",
@@ -130,8 +141,13 @@ class GoogleCalendarIntegration(Integration):
     async def _get_event_id(self, blocked_time_id: int) -> str | None:
         """Retrieve the stored Google Calendar event ID for a blocked_time row."""
         try:
-            row = await BlockedTime.filter(id=blocked_time_id).first()
-            return row.google_event_id if row else None
+            db = get_db()
+            cursor = await db.execute(
+                "SELECT google_event_id FROM blocked_times WHERE id = ?",
+                (blocked_time_id,),
+            )
+            row = await cursor.fetchone()
+            return row["google_event_id"] if row else None
         except Exception:
             logger.exception(
                 "Failed to read google_event_id for blocked_time %s",

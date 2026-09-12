@@ -1,16 +1,12 @@
 import json
+import logging
 from pathlib import Path
 
-from tortoise import BaseDBAsyncClient
+from core.db import get_db
 
-from core.models import (
-    AppointmentType,
-    BlockedTime,
-    Customer,
-    Rule,
-    SchemaMigration,
-    User,
-)
+logger = logging.getLogger(__name__)
+
+_MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
 def load_config(config_path: str | Path | None = None) -> dict:
@@ -22,265 +18,274 @@ def load_config(config_path: str | Path | None = None) -> dict:
     return json.loads(config_path.read_text(encoding="utf-8"))
 
 
-async def _table_exists(connection: BaseDBAsyncClient, table_name: str) -> bool:
-    result = await connection.execute_query_dict(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-        [table_name],
+def _load_migration_sql(name: str) -> str:
+    path = _MIGRATIONS_DIR / f"{name}.sql"
+    if not path.exists():
+        raise FileNotFoundError(f"Migration file not found: {path}")
+    return path.read_text(encoding="utf-8")
+
+
+async def _table_exists(table_name: str) -> bool:
+    db = get_db()
+    cursor = await db.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,)
     )
-    return bool(result)
+    return bool(await cursor.fetchone())
 
 
-async def _column_exists(
-    connection: BaseDBAsyncClient,
-    table_name: str,
-    column_name: str,
-) -> bool:
-    rows = await connection.execute_query_dict(f"PRAGMA table_info({table_name})")
-    return any(row.get("name") == column_name for row in rows)
+async def _column_exists(table_name: str, column_name: str) -> bool:
+    db = get_db()
+    cursor = await db.execute(f"PRAGMA table_info({table_name})")
+    rows = await cursor.fetchall()
+    return any(row["name"] == column_name for row in rows)
 
 
 async def _mark_migration(name: str) -> None:
-    await SchemaMigration.get_or_create(name=name)
+    db = get_db()
+    await db.execute(
+        "INSERT OR IGNORE INTO schema_migrations (name) VALUES (?)", (name,)
+    )
+    await db.commit()
 
 
 async def _is_applied(name: str) -> bool:
-    return await SchemaMigration.filter(name=name).exists()
-
-
-async def migration_create_tables(connection: BaseDBAsyncClient) -> None:
-    if not await _table_exists(connection, "users"):
-        await connection.execute_script("""
-            CREATE TABLE users (
-                id TEXT PRIMARY KEY NOT NULL,
-                name TEXT NOT NULL,
-                email TEXT,
-                timezone TEXT NOT NULL DEFAULT 'America/Argentina/Buenos_Aires'
-            );
-            """)
-
-    if not await _table_exists(connection, "rules"):
-        await connection.execute_script("""
-            CREATE TABLE rules (
-                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                weekday INTEGER,
-                start TEXT NOT NULL,
-                end TEXT NOT NULL
-            );
-            """)
-
-    if not await _table_exists(connection, "appointment_types"):
-        await connection.execute_script("""
-            CREATE TABLE appointment_types (
-                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                name TEXT NOT NULL,
-                duration_minutes INTEGER NOT NULL
-            );
-            """)
-
-    if not await _table_exists(connection, "blocked_times"):
-        await connection.execute_script("""
-            CREATE TABLE blocked_times (
-                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                reason TEXT NOT NULL,
-                start TEXT NOT NULL,
-                end TEXT NOT NULL
-            );
-            """)
-
-
-async def migration_add_booking_columns(connection: BaseDBAsyncClient) -> None:
-    if not await _column_exists(connection, "blocked_times", "appointment_type"):
-        await connection.execute_script(
-            'ALTER TABLE blocked_times ADD COLUMN "appointment_type" TEXT;'
-        )
-
-
-async def migration_add_rule_recurrence_columns(connection: BaseDBAsyncClient) -> None:
-    if not await _column_exists(connection, "rules", "rrule"):
-        await connection.execute_script('ALTER TABLE rules ADD COLUMN "rrule" TEXT;')
-    if not await _column_exists(connection, "rules", "dtstart"):
-        await connection.execute_script('ALTER TABLE rules ADD COLUMN "dtstart" TEXT;')
-    if not await _column_exists(connection, "rules", "exclude_dates"):
-        await connection.execute_script(
-            'ALTER TABLE rules ADD COLUMN "exclude_dates" JSON;'
-        )
-
-
-async def migration_add_customer_table(connection: BaseDBAsyncClient) -> None:
-    if not await _table_exists(connection, "customer"):
-        await connection.execute_script("""
-            CREATE TABLE customer (
-                id TEXT PRIMARY KEY NOT NULL,
-                phone TEXT UNIQUE,
-                name TEXT,
-                info TEXT
-            );
-            """)
-    if not await _column_exists(connection, "blocked_times", "customer"):
-        await connection.execute_script(
-            'ALTER TABLE blocked_times ADD COLUMN "customer" TEXT;'
-        )
-
-
-async def migration_drop_customer_fk(connection: BaseDBAsyncClient) -> None:
-    """Drop FK constraint on blocked_times.customer by recreating the table."""
-    table_info = await connection.execute_query_dict(
-        "PRAGMA foreign_key_list(blocked_times)"
-    )
-    has_customer_fk = any(row.get("table") == "customer" for row in table_info)
-    if not has_customer_fk:
-        return
-
-    await connection.execute_script("""
-        CREATE TABLE blocked_times_new (
-            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-            user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            reason TEXT NOT NULL,
-            start TEXT NOT NULL,
-            end TEXT NOT NULL,
-            appointment_type TEXT,
-            customer TEXT,
-            google_event_id TEXT
-        );
-        INSERT INTO blocked_times_new SELECT * FROM blocked_times;
-        DROP TABLE blocked_times;
-        ALTER TABLE blocked_times_new RENAME TO blocked_times;
-    """)
-
-
-async def migration_add_google_event_id_column(connection: BaseDBAsyncClient) -> None:
-    if not await _column_exists(connection, "blocked_times", "google_event_id"):
-        await connection.execute_script(
-            'ALTER TABLE blocked_times ADD COLUMN "google_event_id" TEXT;'
-        )
-
-
-async def migration_add_user_prompt_columns(connection: BaseDBAsyncClient) -> None:
-    if not await _column_exists(connection, "users", "message"):
-        await connection.execute_script('ALTER TABLE users ADD COLUMN "message" TEXT;')
-    if not await _column_exists(connection, "users", "system_prompt"):
-        await connection.execute_script(
-            'ALTER TABLE users ADD COLUMN "system_prompt" TEXT;'
-        )
-
-
-async def migration_add_advance_notice(connection: BaseDBAsyncClient) -> None:
-    """Add advance_notice_minutes column to appointment_types table."""
-    if not await _column_exists(
-        connection, "appointment_types", "advance_notice_minutes"
-    ):
-        await connection.execute_script(
-            'ALTER TABLE appointment_types ADD COLUMN "advance_notice_minutes" INTEGER;'
-        )
+    db = get_db()
+    cursor = await db.execute("SELECT 1 FROM schema_migrations WHERE name = ?", (name,))
+    return bool(await cursor.fetchone())
 
 
 _MIGRATIONS = [
-    ("001_create_tables", migration_create_tables),
-    ("002_add_booking_columns", migration_add_booking_columns),
-    ("003_add_rule_recurrence_columns", migration_add_rule_recurrence_columns),
-    ("004_add_customer_table", migration_add_customer_table),
-    ("005_add_google_event_id_column", migration_add_google_event_id_column),
-    ("006_drop_customer_fk", migration_drop_customer_fk),
-    ("007_add_user_prompt_columns", migration_add_user_prompt_columns),
-    ("008_add_advance_notice", migration_add_advance_notice),
+    "001_create_tables",
+    "002_add_booking_columns",
+    "003_add_rule_recurrence_columns",
+    "004_add_customer_table",
+    "005_add_google_event_id_column",
+    "006_drop_customer_fk",
+    "007_add_user_prompt_columns",
+    "008_add_advance_notice",
 ]
+
+# Migrations that use ALTER TABLE ADD COLUMN — need column-existence check
+_ALTER_MIGRATIONS = {
+    "002_add_booking_columns": ("blocked_times", "appointment_type"),
+    "003_add_rule_recurrence_columns": ("rules", "rrule"),
+    "004_add_customer_table": ("blocked_times", "customer"),
+    "005_add_google_event_id_column": ("blocked_times", "google_event_id"),
+    "007_add_user_prompt_columns": ("users", "message"),
+    "008_add_advance_notice": ("appointment_types", "advance_notice_minutes"),
+}
+
+# Migrations that use CREATE TABLE IF NOT EXISTS — need table-existence check
+_CREATE_MIGRATIONS = {
+    "001_create_tables": "users",
+    "004_add_customer_table": "customer",
+}
 
 
 async def apply_migrations() -> None:
-    connection = User._meta.db
+    db = get_db()
 
-    await connection.execute_script("""
+    # Ensure schema_migrations tracking table exists
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS schema_migrations (
             id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             name TEXT NOT NULL UNIQUE
-        );
-        """)
+        )
+    """)
+    await db.commit()
 
-    for name, migration in _MIGRATIONS:
+    for name in _MIGRATIONS:
         if await _is_applied(name):
             continue
-        await migration(connection)
+
+        # Skip if the table/column already exists (idempotency)
+        if name in _ALTER_MIGRATIONS:
+            table, column = _ALTER_MIGRATIONS[name]
+            if await _column_exists(table, column):
+                await _mark_migration(name)
+                continue
+
+        if name in _CREATE_MIGRATIONS:
+            table = _CREATE_MIGRATIONS[name]
+            if await _table_exists(table):
+                await _mark_migration(name)
+                continue
+
+        # Special handling for 006_drop_customer_fk — check FK existence
+        if name == "006_drop_customer_fk":
+            cursor = await db.execute("PRAGMA foreign_key_list(blocked_times)")
+            fk_rows = await cursor.fetchall()
+            has_customer_fk = any(row["table"] == "customer" for row in fk_rows)
+            if not has_customer_fk:
+                await _mark_migration(name)
+                continue
+
+        sql = _load_migration_sql(name)
+        await db.executescript(sql)
+        await db.commit()
         await _mark_migration(name)
+        logger.info("Applied migration: %s", name)
+
+
+def _serialize_exclude_dates(dates):
+    return json.dumps(dates) if dates else None
 
 
 async def sync_config_to_db(config_path: str | Path | None = None) -> None:
     config = load_config(config_path)
+    db = get_db()
+
     for user in config.get("users", []):
-        await User.update_or_create(
-            defaults={
-                "name": user.get("name"),
-                "email": user.get("email"),
-                "timezone": user.get("timezone") or "America/Argentina/Buenos_Aires",
-            },
-            id=user["id"],
+        await db.execute(
+            """INSERT INTO users (id, name, email, timezone, message, system_prompt)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                   name = excluded.name,
+                   email = excluded.email,
+                   timezone = excluded.timezone,
+                   message = excluded.message,
+                   system_prompt = excluded.system_prompt""",
+            (
+                user["id"],
+                user.get("name"),
+                user.get("email"),
+                user.get("timezone") or "America/Argentina/Buenos_Aires",
+                user.get("message"),
+                user.get("system_prompt"),
+            ),
         )
 
         for rule in user.get("rules", []):
-            rule_defaults = {
-                "user_id": user["id"],
-                "weekday": rule.get("weekday"),
-                "start": rule.get("start"),
-                "end": rule.get("end"),
-                "rrule": rule.get("rrule"),
-                "dtstart": rule.get("dtstart"),
-                "exclude_dates": rule.get("exclude_dates"),
-            }
             rule_id = rule.get("id")
             if rule_id is None:
-                await Rule.create(**rule_defaults)
+                await db.execute(
+                    """INSERT INTO rules (user, weekday, start, end, rrule, dtstart,
+                       exclude_dates)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        user["id"],
+                        rule.get("weekday"),
+                        rule.get("start"),
+                        rule.get("end"),
+                        rule.get("rrule"),
+                        rule.get("dtstart"),
+                        _serialize_exclude_dates(rule.get("exclude_dates")),
+                    ),
+                )
             else:
-                await Rule.update_or_create(defaults=rule_defaults, id=rule_id)
+                await db.execute(
+                    """INSERT INTO rules (id, user, weekday, start, end, rrule, dtstart,
+                       exclude_dates)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(id) DO UPDATE SET
+                           user = excluded.user,
+                           weekday = excluded.weekday,
+                           start = excluded.start,
+                           end = excluded.end,
+                           rrule = excluded.rrule,
+                           dtstart = excluded.dtstart,
+                           exclude_dates = excluded.exclude_dates""",
+                    (
+                        rule_id,
+                        user["id"],
+                        rule.get("weekday"),
+                        rule.get("start"),
+                        rule.get("end"),
+                        rule.get("rrule"),
+                        rule.get("dtstart"),
+                        _serialize_exclude_dates(rule.get("exclude_dates")),
+                    ),
+                )
 
         for blocked in user.get("blocked_times", []):
-            blocked_defaults = {
-                "user_id": user["id"],
-                "reason": blocked.get("reason"),
-                "start": blocked.get("start"),
-                "end": blocked.get("end"),
-                "appointment_type": blocked.get("appointment_type"),
-                "google_event_id": blocked.get("google_event_id"),
-                "customer": blocked.get("customer"),
-            }
             blocked_id = blocked.get("id")
             if blocked_id is None:
-                await BlockedTime.create(**blocked_defaults)
+                await db.execute(
+                    """INSERT INTO blocked_times
+                       (user, reason, start, end, appointment_type,
+                       google_event_id, customer)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        user["id"],
+                        blocked.get("reason"),
+                        blocked.get("start"),
+                        blocked.get("end"),
+                        blocked.get("appointment_type"),
+                        blocked.get("google_event_id"),
+                        blocked.get("customer"),
+                    ),
+                )
             else:
-                await BlockedTime.update_or_create(
-                    defaults=blocked_defaults, id=blocked_id
+                await db.execute(
+                    """INSERT INTO blocked_times
+                       (id, user, reason, start, end, appointment_type,
+                       google_event_id, customer)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(id) DO UPDATE SET
+                           user = excluded.user,
+                           reason = excluded.reason,
+                           start = excluded.start,
+                           end = excluded.end,
+                           appointment_type = excluded.appointment_type,
+                           google_event_id = excluded.google_event_id,
+                           customer = excluded.customer""",
+                    (
+                        blocked_id,
+                        user["id"],
+                        blocked.get("reason"),
+                        blocked.get("start"),
+                        blocked.get("end"),
+                        blocked.get("appointment_type"),
+                        blocked.get("google_event_id"),
+                        blocked.get("customer"),
+                    ),
                 )
 
         for appointment_type in user.get("appointment_types", []):
-            appointment_defaults = {
-                "user_id": user["id"],
-                "name": appointment_type.get("name"),
-                "duration_minutes": appointment_type.get("duration_minutes"),
-                "advance_notice_minutes": appointment_type.get(
-                    "advance_notice_minutes"
-                ),
-            }
             appointment_id = appointment_type.get("id")
             if appointment_id is None:
-                await AppointmentType.create(**appointment_defaults)
+                await db.execute(
+                    """INSERT INTO appointment_types
+                       (user, name, duration_minutes, advance_notice_minutes)
+                       VALUES (?, ?, ?, ?)""",
+                    (
+                        user["id"],
+                        appointment_type.get("name"),
+                        appointment_type.get("duration_minutes"),
+                        appointment_type.get("advance_notice_minutes"),
+                    ),
+                )
             else:
-                await AppointmentType.update_or_create(
-                    defaults=appointment_defaults,
-                    id=appointment_id,
+                await db.execute(
+                    """INSERT INTO appointment_types
+                       (id, user, name, duration_minutes, advance_notice_minutes)
+                       VALUES (?, ?, ?, ?, ?)
+                       ON CONFLICT(id) DO UPDATE SET
+                           user = excluded.user,
+                           name = excluded.name,
+                           duration_minutes = excluded.duration_minutes,
+                           advance_notice_minutes = excluded.advance_notice_minutes""",
+                    (
+                        appointment_id,
+                        user["id"],
+                        appointment_type.get("name"),
+                        appointment_type.get("duration_minutes"),
+                        appointment_type.get("advance_notice_minutes"),
+                    ),
                 )
 
-    existing_customers = {
-        customer.phone: customer
-        for customer in await Customer.filter().all()
-        if customer.phone is not None
-    }
-    for user in config.get("users", []):
-        for blocked in user.get("blocked_times", []):
-            phone = blocked.get("customer")
-            if not phone:
-                continue
-            customer = existing_customers.get(phone)
-            if customer is None:
-                customer = await Customer.create(id=phone, phone=phone, name=phone)
-                existing_customers[phone] = customer
+    # Sync customers from blocked_times
+    cursor = await db.execute(
+        "SELECT DISTINCT customer FROM blocked_times WHERE customer IS NOT NULL"
+    )
+    phone_rows = await cursor.fetchall()
+    for row in phone_rows:
+        phone = row["customer"]
+        cursor2 = await db.execute("SELECT 1 FROM customer WHERE id = ?", (phone,))
+        if not await cursor2.fetchone():
+            await db.execute(
+                "INSERT INTO customer (id, phone, name) VALUES (?, ?, ?)",
+                (phone, phone, phone),
+            )
+
+    await db.commit()
