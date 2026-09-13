@@ -17,6 +17,65 @@ A small scheduling app for managing doctors or staff calendars, appointment type
 - Discord bot integration for the receptionist assistant
 - Google Calendar integration for syncing booked appointments
 
+## Architecture
+
+```mermaid
+flowchart TD
+    subgraph EntryPoints["Entry Points"]
+        A[FastAPI]:::fastapi
+        B[CLI / bot]:::bot
+        C[Telegram / Discord]:::integration
+        D[Google Calendar]:::integration
+    end
+
+    subgraph API["API Layer"]
+        R1["routes/users"]:::route
+        R2["routes/appointments"]:::route
+        R3["routes/dashboard"]:::route
+        R4["routes/agent"]:::route
+    end
+
+    subgraph Service["Service Layer"]
+        S["AppointmentsService<br/>core/services/appointments.py"]:::service
+        M["Recurrence calculation<br/>core/recurrence.py"]:::service
+    end
+
+    subgraph Persistence["Persistence Layer"]
+        Repo["Repositories<br/>core/repositories/"]:::repo
+        Queries["SQL query cache<br/>core/queries/"]:::repo
+        Migrations["Migrations<br/>core/migrations/"]:::repo
+        DB[("SQLite<br/>(aiosqlite)")]:::db
+    end
+
+    subgraph Config["Configuration"]
+        CFG["config.json"]:::config
+        Setup["setup.py"]:::config
+        Backup["backup_config.py"]:::config
+    end
+
+    A --> R1 & R2 & R3 & R4
+    B --> S
+    C --> A
+    D --> S
+    R1 & R2 & R4 --> S
+    R3 --> DB
+    S --> Repo
+    Repo --> Queries --> DB
+    CFG --> Migrations --> DB
+    Migrations --> Repo
+    Setup --> CFG
+    Backup --> DB
+
+    classDef fastapi fill:#2965FF,color:#fff,stroke:#2965FF
+    classDef bot fill:#6f42c1,color:#fff,stroke:#6f42c1
+    classDef integration fill:#e83e8c,color:#fff,stroke:#e83e8c
+    classDef route fill:#17a2b8,color:#fff,stroke:#17a2b8
+    classDef service fill:#28a745,color:#fff,stroke:#28a745
+    classDef repo fill:#fd7e14,color:#fff,stroke:#fd7e14
+    classDef db fill:#6c757d,color:#fff,stroke:#6c757d
+    classDef config fill:#20c997,color:#fff,stroke:#20c997
+```
+
 ## Project structure
 
 - `api/` — FastAPI application and routes
