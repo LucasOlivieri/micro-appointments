@@ -1,6 +1,6 @@
 # Micro Appointments
 
-A small scheduling app for managing doctors or staff calendars, appointment types, and booked availability. It uses SQLite via Tortoise ORM as the persistence layer, a FastAPI API for interacting with the calendar, and configuration-driven user setup.
+A small scheduling app for managing doctors or staff calendars, appointment types, and booked availability. It uses SQLite via aiosqlite as the persistence layer, a FastAPI API for interacting with the calendar, and configuration-driven user setup.
 
 [![CI/CD](https://github.com/LucasOlivieri/micro-appointments/actions/workflows/ci.yml/badge.svg)](https://github.com/LucasOlivieri/micro-appointments/actions/workflows/ci.yml)
 
@@ -21,20 +21,22 @@ A small scheduling app for managing doctors or staff calendars, appointment type
 
 - `api/` — FastAPI application and routes
 - `bot/` — agent/client tooling used by the assistant
-- `core/` — scheduling logic, DB bootstrap, recurrence calculations, service orchestration, and repository layer
-- `core/appointments.py` — `AppointmentsService` orchestrating scheduling and booking behavior
-- `core/repositories/` — one async repository per model, keeping persistence behind a common base abstraction
+- `core/` — scheduling logic, DB bootstrap, migration, service orchestration, and repository layer
+- `core/services/appointments.py` — `AppointmentsService` orchestrating scheduling and booking behavior
+- `core/repositories/` — one async repository per entity, backed by raw SQL
+- `core/queries/` — hand-written `.sql` files organized by entity
+- `core/migrations/` — project-managed SQL migration files
 - `tests/` — pytest coverage for app behavior
 - `config.json` — runtime user configuration used to seed the database
 - `setup.py` — interactive config generator
 
 ## Core architecture
 
-The business layer keeps persistence concerns inside `core/` and keeps the API layer thin and unaware of Tortoise detail.
+The business layer keeps persistence concerns inside `core/` and keeps the API layer thin and unaware of database detail.
 
-- `core/models.py` defines the SQLite/Tortoise models.
-- `core/repositories/` provides repository modules for each model and a shared base repository.
-- `core/appointments.py` contains `AppointmentsService`, which orchestrates booking and scheduling rules using the repositories instead of direct model calls.
+- `core/models.py` defines plain Python `@dataclass` models matching the SQLite schema.
+- `core/repositories/` provides repository modules for each entity and a shared base repository backed by raw SQL queries cached in `core/queries/`.
+- `core/services/appointments.py` contains `AppointmentsService`, which orchestrates booking and scheduling rules using the repositories instead of direct database calls.
 - `api/` only accepts request payloads, delegates to the service, and serializes responses.
 
 This keeps the service reusable in tests, scripts, and integrations without coupling it to FastAPI or HTTP-specific concerns.
@@ -117,9 +119,9 @@ Backups include all users, rules, appointment types, and blocked times in the sa
 
 ## Database setup
 
-The app initializes SQLite via Tortoise ORM in `core/db.py`. On startup it applies project-managed SQL migrations (without Aerich), then syncs data from `config.json` into the database tables.
+The app initializes SQLite via `aiosqlite` in `core/db.py`. On startup it applies project-managed SQL migrations (plain SQL files in `core/migrations/`), then syncs data from `config.json` into the database tables.
 
-Persistence access is encapsulated behind the repository layer in `core/repositories/`, while `AppointmentsService` remains the orchestration point for scheduling logic. This keeps the repository and service independent from the API while preserving the async database access pattern used throughout the app.
+Persistence access is encapsulated behind the repository layer in `core/repositories/`, backed by hand-written queries organized by entity under `core/queries/`. Services like `AppointmentsService` remain the orchestration point for scheduling logic. This keeps the repository and service independent from the API while preserving the async database access pattern used throughout the app.
 
 This keeps the database aligned with the current configuration file without requiring manual SQL updates.
 
