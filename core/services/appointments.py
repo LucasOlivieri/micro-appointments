@@ -131,10 +131,15 @@ class AppointmentsService:
     async def upsert_user(self, payload):
         body = dict(payload)
         user_id = body["id"]
+        # Fetch existing user to preserve fields not in the payload
+        existing = await self.users.get_by_id(user_id)
         defaults = {
             "name": body.get("name"),
             "email": body.get("email"),
             "timezone": body.get("timezone") or "America/Argentina/Buenos_Aires",
+            "message": body.get("message") or (existing.message if existing else None),
+            "system_prompt": body.get("system_prompt")
+            or (existing.system_prompt if existing else None),
         }
         user, _ = await self.users.upsert(user_id, defaults)
         return _serialize_user(user)

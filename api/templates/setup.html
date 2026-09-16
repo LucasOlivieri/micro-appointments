@@ -189,6 +189,17 @@
       const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
       const WEEKDAY_MAP = { 0: "MO", 1: "TU", 2: "WE", 3: "TH", 4: "FR", 5: "SA", 6: "SU" };
       const RRULE_WEEKDAYS = { 0: "MO", 1: "TU", 2: "WE", 3: "TH", 4: "FR", 5: "SA", 6: "SU" };
+      const WEEKDAY_FROM_RRULE = { "MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6 };
+
+      function parseWeekdaysFromRule(r) {
+        // Return array of weekday numbers this rule applies to
+        if (r.weekday !== null && r.weekday !== undefined) return [r.weekday];
+        if (r.rrule) {
+          const m = r.rrule.match(/BYDAY=([A-Z,]+)/);
+          if (m) return m[1].split(",").map(d => WEEKDAY_FROM_RRULE[d]).filter(d => d !== undefined);
+        }
+        return [];
+      }
 
       // ── Toast ──
       function toast(msg, type = "success") {
@@ -409,15 +420,17 @@
           </div>
         `;
 
-        // Render existing rules
+        // Render existing rules — handle both weekday field and rrule BYDAY
         formData.rules.forEach(r => {
-          const day = r.weekday;
+          const days = parseWeekdaysFromRule(r);
           const startH = parseInt(r.start.split(":")[0]);
           const endH = parseInt(r.end.split(":")[0]);
-          for (let h = startH; h < endH; h++) {
-            const cell = document.getElementById(`cell-${day}-${h}`);
-            if (cell) cell.classList.add("active");
-          }
+          days.forEach(day => {
+            for (let h = startH; h < endH; h++) {
+              const cell = document.getElementById(`cell-${day}-${h}`);
+              if (cell) cell.classList.add("active");
+            }
+          });
         });
 
         // Drag handling
@@ -685,7 +698,7 @@
         const ruleCount = formData.rules.length;
         const atCount = formData.appointment_types.length;
         const btCount = formData.blocked_times.length;
-        const daysWithRules = new Set(formData.rules.map(r => r.weekday)).size;
+        const daysWithRules = new Set(formData.rules.flatMap(r => parseWeekdaysFromRule(r))).size;
         el.innerHTML = `
           <h3 class="text-lg font-semibold mb-4">Review & Save</h3>
           <div class="space-y-3">
@@ -780,7 +793,8 @@
 
         // Create or update rules
         for (const r of formData.rules) {
-          const payload = { user_id: userId, weekday: r.weekday, start: r.start, end: r.end, rrule: r.rrule };
+          const wd = r.weekday ?? parseWeekdaysFromRule(r)[0];
+          const payload = { user_id: userId, weekday: wd, start: r.start, end: r.end, rrule: r.rrule };
           if (r.id && existingIds.has(r.id)) {
             await api("PUT", `/setup/rules/${r.id}`, payload);
           } else {
