@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Setup — micro-appointments</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              border: "hsl(var(--border))",
+              input: "hsl(var(--input))",
+              ring: "hsl(var(--ring))",
+              background: "hsl(var(--background))",
+              foreground: "hsl(var(--foreground))",
+              primary: { DEFAULT: "hsl(var(--primary))", foreground: "hsl(var(--primary-foreground))" },
+              secondary: { DEFAULT: "hsl(var(--secondary))", foreground: "hsl(var(--secondary-foreground))" },
+              muted: { DEFAULT: "hsl(var(--muted))", foreground: "hsl(var(--muted-foreground))" },
+              accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
+              card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
+            },
+            borderRadius: { lg: "var(--radius)", md: "calc(var(--radius) - 2px)", sm: "calc(var(--radius) - 4px)" },
+          },
+        },
+      };
+    </script>
+    <style>
+      :root {
+        --background: 210 40% 98%;
+        --foreground: 222 47% 11%;
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 11%;
+        --primary: 221 83% 53%;
+        --primary-foreground: 210 40% 98%;
+        --secondary: 210 40% 96%;
+        --secondary-foreground: 222 47% 11%;
+        --muted: 210 40% 96%;
+        --muted-foreground: 215 16% 47%;
+        --accent: 210 40% 96%;
+        --accent-foreground: 222 47% 11%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 210 40% 98%;
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 221 83% 53%;
+        --radius: 0.5rem;
+      }
+      .dark {
+        --background: 222 47% 11%;
+        --foreground: 210 40% 98%;
+        --card: 222 47% 14%;
+        --card-foreground: 210 40% 98%;
+        --primary: 217 91% 60%;
+        --primary-foreground: 222 47% 11%;
+        --secondary: 217 33% 17%;
+        --secondary-foreground: 210 40% 98%;
+        --muted: 217 33% 17%;
+        --muted-foreground: 215 20% 65%;
+        --accent: 217 33% 17%;
+        --accent-foreground: 210 40% 98%;
+        --border: 217 33% 17%;
+        --input: 217 33% 17%;
+        --ring: 224 76% 48%;
+      }
+      body { background: hsl(var(--background)); color: hsl(var(--foreground)); font-family: system-ui, -apple-system, sans-serif; }
+
+      /* Week grid */
+      .week-grid { display: grid; grid-template-columns: 60px repeat(7, 1fr); gap: 2px; user-select: none; }
+      .week-grid .header { font-size: 0.75rem; font-weight: 600; text-align: center; padding: 6px 2px; color: hsl(var(--muted-foreground)); }
+      .week-grid .time-label { font-size: 0.7rem; color: hsl(var(--muted-foreground)); text-align: right; padding-right: 6px; line-height: 28px; }
+      .week-grid .cell { height: 28px; border-radius: 3px; background: hsl(var(--secondary)); cursor: pointer; transition: background 0.1s; }
+      .week-grid .cell:hover { background: hsl(var(--accent)); }
+      .week-grid .cell.active { background: hsl(var(--primary)); opacity: 0.7; }
+      .week-grid .cell.active-drag { background: hsl(var(--primary)); opacity: 0.85; }
+
+      /* Steps */
+      .step-indicator { display: flex; gap: 0; margin-bottom: 24px; }
+      .step { flex: 1; text-align: center; padding: 10px 8px; font-size: 0.8rem; font-weight: 500; border-bottom: 3px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); transition: all 0.2s; }
+      .step.active { border-bottom-color: hsl(var(--primary)); color: hsl(var(--primary)); font-weight: 600; }
+      .step.done { border-bottom-color: #22c55e; color: #22c55e; }
+
+      .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-size: 0.875rem; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; }
+      .btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+      .btn-primary:hover { opacity: 0.9; }
+      .btn-secondary { background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); border-color: hsl(var(--border)); }
+      .btn-secondary:hover { background: hsl(var(--accent)); }
+      .btn-danger { background: hsl(var(--destructive)); color: hsl(var(--destructive-foreground)); }
+      .btn-danger:hover { opacity: 0.9; }
+      .btn-ghost { background: transparent; color: hsl(var(--muted-foreground)); }
+      .btn-ghost:hover { background: hsl(var(--secondary)); }
+      .btn-sm { padding: 4px 10px; font-size: 0.75rem; }
+
+      .card { background: hsl(var(--card)); color: hsl(var(--card-foreground)); border-radius: var(--radius); border: 1px solid hsl(var(--border)); padding: 20px; }
+      .input { width: 100%; padding: 8px 12px; border-radius: var(--radius); border: 1px solid hsl(var(--input)); background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 0.875rem; outline: none; }
+      .input:focus { border-color: hsl(var(--ring)); box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2); }
+      .label { display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 4px; color: hsl(var(--foreground)); }
+      select.input { appearance: auto; }
+
+      .fade-in { animation: fadeIn 0.2s ease; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+      .user-item { padding: 10px 14px; border-radius: var(--radius); cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: space-between; }
+      .user-item:hover { background: hsl(var(--accent)); }
+      .user-item.selected { background: hsl(var(--primary) / 0.1); border: 1px solid hsl(var(--primary)); }
+
+      .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 500; background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); }
+      .tag .remove { cursor: pointer; font-size: 1rem; line-height: 1; opacity: 0.6; }
+      .tag .remove:hover { opacity: 1; }
+
+      .toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; border-radius: var(--radius); background: hsl(var(--card)); border: 1px solid hsl(var(--border)); box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-size: 0.875rem; z-index: 100; animation: fadeIn 0.2s ease; }
+      .toast.error { border-color: hsl(var(--destructive)); }
+      .toast.success { border-color: #22c55e; }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="max-w-6xl mx-auto p-6">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold">Setup</h1>
+          <p class="text-sm text-[hsl(var(--muted-foreground))]">Configure users, availability, appointment types, and blocked times</p>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-secondary btn-sm" onclick="location.href='/admin'">Admin Panel</button>
+          <button class="btn btn-secondary btn-sm" onclick="location.href='/dashboard'">Dashboard</button>
+        </div>
+      </div>
+
+      <!-- Main layout -->
+      <div class="flex gap-6">
+        <!-- User sidebar -->
+        <div class="w-64 shrink-0">
+          <div class="card">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="font-semibold text-sm">Users</h2>
+              <button class="btn btn-primary btn-sm" onclick="startNewUser()">+ New</button>
+            </div>
+            <div id="user-list" class="space-y-1">
+              <div class="text-sm text-[hsl(var(--muted-foreground))] py-4 text-center">Loading...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main content -->
+        <div class="flex-1 min-w-0">
+          <div id="welcome-view" class="card text-center py-16">
+            <h2 class="text-xl font-semibold mb-2">Welcome to Setup</h2>
+            <p class="text-[hsl(var(--muted-foreground))] mb-4">Select a user from the sidebar or create a new one to get started.</p>
+            <button class="btn btn-primary" onclick="startNewUser()">Create your first user</button>
+          </div>
+
+          <div id="wizard-view" class="hidden">
+            <!-- Step indicator -->
+            <div class="step-indicator" id="step-indicator"></div>
+
+            <!-- Step content -->
+            <div class="card fade-in" id="step-content"></div>
+
+            <!-- Navigation -->
+            <div class="flex justify-between mt-4" id="step-nav">
+              <button class="btn btn-secondary" id="btn-prev" onclick="prevStep()">← Back</button>
+              <button class="btn btn-primary" id="btn-next" onclick="nextStep()">Next →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ── State ──
+      const STEPS = ["Profile", "Availability", "Appointment Types", "Blocked Times", "Review"];
+      let currentStep = 0;
+      let editingUserId = null; // null = creating new
+      let formData = {
+        name: "",
+        email: "",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Argentina/Buenos_Aires",
+        rules: [],        // { weekday, start, end, rrule, id? }
+        appointment_types: [], // { name, duration_minutes, advance_notice_minutes, id? }
+        blocked_times: [],     // { reason, start, end, id? }
+      };
+      let users = [];
+
+      // ── Weekday helpers ──
+      const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const WEEKDAY_MAP = { 0: "MO", 1: "TU", 2: "WE", 3: "TH", 4: "FR", 5: "SA", 6: "SU" };
+      const RRULE_WEEKDAYS = { 0: "MO", 1: "TU", 2: "WE", 3: "TH", 4: "FR", 5: "SA", 6: "SU" };
+
+      // ── Toast ──
+      function toast(msg, type = "success") {
+        const el = document.createElement("div");
+        el.className = `toast ${type}`;
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 3000);
+      }
+
+      // ── API helpers ──
+      async function api(method, url, body = null) {
+        const opts = { method, headers: {} };
+        if (body) {
+          opts.headers["Content-Type"] = "application/json";
+          opts.body = JSON.stringify(body);
+        }
+        const res = await fetch(url, opts);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`API ${method} ${url}: ${res.status} — ${text}`);
+        }
+        if (res.status === 204) return null;
+        return res.json();
+      }
+
+      async function loadUsers() {
+        users = await api("GET", "/setup/data");
+        renderUserList();
+        return users;
+      }
+
+      // ── User list ──
+      function renderUserList() {
+        const el = document.getElementById("user-list");
+        if (!users.length) {
+          el.innerHTML = '<div class="text-sm text-[hsl(var(--muted-foreground))] py-4 text-center">No users yet</div>';
+          return;
+        }
+        el.innerHTML = users.map(u => `
+          <div class="user-item ${editingUserId === u.id ? 'selected' : ''}" onclick="selectUser('${u.id}')">
+            <div>
+              <div class="text-sm font-medium">${esc(u.name)}</div>
+              <div class="text-xs text-[hsl(var(--muted-foreground))]">${esc(u.email || '')}</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); deleteUser('${u.id}')" title="Delete user">✕</button>
+          </div>
+        `).join("");
+      }
+
+      function esc(s) { const d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+
+      async function selectUser(userId) {
+        editingUserId = userId;
+        const user = users.find(u => u.id === userId);
+        if (!user) return;
+        formData = {
+          name: user.name || "",
+          email: user.email || "",
+          timezone: user.timezone || "America/Argentina/Buenos_Aires",
+          rules: (user.rules || []).map(r => ({ ...r })),
+          appointment_types: (user.appointment_types || []).map(a => ({ ...a })),
+          blocked_times: (user.blocked_times || []).map(b => ({ ...b })),
+        };
+        currentStep = 0;
+        showWizard();
+        renderStep();
+        renderUserList();
+      }
+
+      async function deleteUser(userId) {
+        if (!confirm("Delete this user and all their data?")) return;
+        try {
+          await api("DELETE", `/setup/users/${userId}`);
+          if (editingUserId === userId) { editingUserId = null; hideWizard(); }
+          await loadUsers();
+          toast("User deleted");
+        } catch (e) { toast(e.message, "error"); }
+      }
+
+      function startNewUser() {
+        editingUserId = null;
+        formData = {
+          name: "",
+          email: "",
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Argentina/Buenos_Aires",
+          rules: [],
+          appointment_types: [],
+          blocked_times: [],
+        };
+        currentStep = 0;
+        showWizard();
+        renderStep();
+        renderUserList();
+      }
+
+      // ── Wizard navigation ──
+      function showWizard() {
+        document.getElementById("welcome-view").classList.add("hidden");
+        document.getElementById("wizard-view").classList.remove("hidden");
+      }
+
+      function hideWizard() {
+        document.getElementById("welcome-view").classList.remove("hidden");
+        document.getElementById("wizard-view").classList.add("hidden");
+      }
+
+      function renderStepIndicator() {
+        const el = document.getElementById("step-indicator");
+        el.innerHTML = STEPS.map((s, i) => `
+          <div class="step ${i === currentStep ? 'active' : ''} ${i < currentStep ? 'done' : ''}" onclick="goToStep(${i})">
+            ${i < currentStep ? '✓ ' : ''}${s}
+          </div>
+        `).join("");
+      }
+
+      function goToStep(i) {
+        if (i < 0 || i >= STEPS.length) return;
+        // Save current step data before moving
+        if (currentStep === 0) saveProfileStep();
+        else if (currentStep === 1) saveAvailabilityStep();
+        else if (currentStep === 2) saveAppointmentTypesStep();
+        else if (currentStep === 3) saveBlockedTimesStep();
+        currentStep = i;
+        renderStep();
+      }
+
+      function prevStep() {
+        if (currentStep === 0) return;
+        goToStep(currentStep - 1);
+      }
+
+      function nextStep() {
+        // Validate & save current step
+        if (currentStep === 0) { if (!saveProfileStep()) return; }
+        else if (currentStep === 1) { saveAvailabilityStep(); }
+        else if (currentStep === 2) { if (!saveAppointmentTypesStep()) return; }
+        else if (currentStep === 3) { saveBlockedTimesStep(); }
+        else if (currentStep === 4) { finishSetup(); return; }
+
+        if (currentStep < STEPS.length - 1) {
+          currentStep++;
+          renderStep();
+        }
+      }
+
+      // ── Step renderers ──
+
+      function renderStep() {
+        renderStepIndicator();
+        const el = document.getElementById("step-content");
+        document.getElementById("btn-prev").style.display = currentStep === 0 ? "none" : "inline-flex";
+        const nextBtn = document.getElementById("btn-next");
+        nextBtn.textContent = currentStep === STEPS.length - 1 ? "Save & Finish ✓" : "Next →";
+
+        switch (currentStep) {
+          case 0: renderProfile(el); break;
+          case 1: renderAvailability(el); break;
+          case 2: renderAppointmentTypes(el); break;
+          case 3: renderBlockedTimes(el); break;
+          case 4: renderReview(el); break;
+        }
+      }
+
+      // ── Step 0: Profile ──
+      function renderProfile(el) {
+        el.innerHTML = `
+          <h3 class="text-lg font-semibold mb-4">User Profile</h3>
+          <div class="space-y-4 max-w-md">
+            <div>
+              <label class="label">Name</label>
+              <input class="input" id="f-name" value="${esc(formData.name)}" placeholder="e.g. Dr. Smith">
+            </div>
+            <div>
+              <label class="label">Email</label>
+              <input class="input" id="f-email" value="${esc(formData.email)}" placeholder="e.g. smith@example.com">
+            </div>
+            <div>
+              <label class="label">Timezone</label>
+              <input class="input" id="f-tz" value="${esc(formData.timezone)}" placeholder="e.g. America/New_York">
+            </div>
+          </div>
+        `;
+      }
+
+      function saveProfileStep() {
+        const name = document.getElementById("f-name").value.trim();
+        const email = document.getElementById("f-email").value.trim();
+        const tz = document.getElementById("f-tz").value.trim();
+        if (!name) { toast("Name is required", "error"); return false; }
+        formData.name = name;
+        formData.email = email;
+        formData.timezone = tz || "America/Argentina/Buenos_Aires";
+        return true;
+      }
+
+      // ── Step 1: Availability (week grid) ──
+      let dragStart = null;
+      let dragCells = [];
+
+      function renderAvailability(el) {
+        el.innerHTML = `
+          <h3 class="text-lg font-semibold mb-4">Weekly Availability</h3>
+          <p class="text-sm text-[hsl(var(--muted-foreground))] mb-4">Click and drag on the grid to set available hours. Click an existing block to remove it.</p>
+          <div class="week-grid" id="week-grid">
+            <div></div>
+            ${WEEKDAY_NAMES.map(d => `<div class="header">${d}</div>`).join("")}
+            ${Array.from({ length: 24 }, (_, h) => `
+              <div class="time-label">${String(h).padStart(2, '0')}:00</div>
+              ${WEEKDAY_NAMES.map((_, w) => `<div class="cell" data-hour="${h}" data-day="${w}" id="cell-${w}-${h}"></div>`).join("")}
+            `).join("")}
+          </div>
+          <div class="mt-4 flex gap-2">
+            <button class="btn btn-secondary btn-sm" onclick="clearAvailability()">Clear all</button>
+          </div>
+          <div class="mt-3 text-xs text-[hsl(var(--muted-foreground))]">
+            <span class="inline-block w-3 h-3 rounded bg-[hsl(var(--primary))] opacity-70 align-middle mr-1"></span> Available
+          </div>
+        `;
+
+        // Render existing rules
+        formData.rules.forEach(r => {
+          const day = r.weekday;
+          const startH = parseInt(r.start.split(":")[0]);
+          const endH = parseInt(r.end.split(":")[0]);
+          for (let h = startH; h < endH; h++) {
+            const cell = document.getElementById(`cell-${day}-${h}`);
+            if (cell) cell.classList.add("active");
+          }
+        });
+
+        // Drag handling
+        const grid = document.getElementById("week-grid");
+        let isDragging = false;
+
+        grid.addEventListener("mousedown", (e) => {
+          const cell = e.target.closest(".cell");
+          if (!cell) return;
+          isDragging = true;
+          dragStart = { day: parseInt(cell.dataset.day), hour: parseInt(cell.dataset.hour) };
+          dragCells = [cell];
+          cell.classList.add("active-drag");
+        });
+
+        grid.addEventListener("mouseover", (e) => {
+          if (!isDragging) return;
+          const cell = e.target.closest(".cell");
+          if (!cell) return;
+          const day = parseInt(cell.dataset.day);
+          const hour = parseInt(cell.dataset.hour);
+          // Only allow same-day drag
+          if (day !== dragStart.day) return;
+          // Clear previous drag highlights
+          document.querySelectorAll(".cell.active-drag").forEach(c => c.classList.remove("active-drag"));
+          // Highlight range
+          const minH = Math.min(dragStart.hour, hour);
+          const maxH = Math.max(dragStart.hour, hour);
+          for (let h = minH; h <= maxH; h++) {
+            const c = document.getElementById(`cell-${day}-${h}`);
+            if (c) { c.classList.add("active-drag"); dragCells.push(c); }
+          }
+        });
+
+        const endDrag = () => {
+          if (!isDragging) return;
+          isDragging = false;
+          // Convert drag to toggle
+          const activeCells = document.querySelectorAll(".cell.active-drag");
+          const day = dragStart.day;
+          const hours = Array.from(activeCells).map(c => parseInt(c.dataset.hour)).sort((a, b) => a - b);
+          if (hours.length === 0) return;
+
+          // Check if all these hours are already active → remove them
+          const allActive = hours.every(h => document.getElementById(`cell-${day}-${h}`).classList.contains("active"));
+          if (allActive) {
+            // Remove this range
+            hours.forEach(h => document.getElementById(`cell-${day}-${h}`).classList.remove("active", "active-drag"));
+          } else {
+            // Toggle each hour in range
+            hours.forEach(h => {
+              const c = document.getElementById(`cell-${day}-${h}`);
+              if (c) c.classList.add("active");
+              if (c) c.classList.remove("active-drag");
+            });
+          }
+          // Clean up drag highlights
+          document.querySelectorAll(".cell.active-drag").forEach(c => c.classList.remove("active-drag"));
+          dragCells = [];
+          dragStart = null;
+        };
+
+        grid.addEventListener("mouseup", endDrag);
+        grid.addEventListener("mouseleave", endDrag);
+
+        // Click single cell to toggle
+        grid.addEventListener("click", (e) => {
+          if (isDragging) return;
+          const cell = e.target.closest(".cell");
+          if (!cell) return;
+          cell.classList.toggle("active");
+        });
+      }
+
+      function clearAvailability() {
+        document.querySelectorAll(".cell.active").forEach(c => c.classList.remove("active"));
+        formData.rules = [];
+      }
+
+      function saveAvailabilityStep() {
+        // Read grid state into rules
+        const rules = [];
+        for (let day = 0; day < 7; day++) {
+          let rangeStart = null;
+          for (let h = 0; h < 24; h++) {
+            const cell = document.getElementById(`cell-${day}-${h}`);
+            const isActive = cell && cell.classList.contains("active");
+            if (isActive && rangeStart === null) {
+              rangeStart = h;
+            } else if (!isActive && rangeStart !== null) {
+              rules.push({
+                weekday: day,
+                start: `${String(rangeStart).padStart(2, "0")}:00`,
+                end: `${String(h).padStart(2, "0")}:00`,
+                rrule: `FREQ=WEEKLY;BYDAY=${RRULE_WEEKDAYS[day]}`,
+              });
+              rangeStart = null;
+            }
+          }
+          if (rangeStart !== null) {
+            rules.push({
+              weekday: day,
+              start: `${String(rangeStart).padStart(2, "0")}:00`,
+              end: "24:00",
+              rrule: `FREQ=WEEKLY;BYDAY=${RRULE_WEEKDAYS[day]}`,
+            });
+          }
+        }
+        formData.rules = rules;
+      }
+
+      // ── Step 2: Appointment Types ──
+      const DURATION_CHOICES = [];
+      for (let d = 5; d <= 240; d += 5) {
+        DURATION_CHOICES.push({ value: d, label: d < 60 ? `${d} minutes` : d % 60 === 0 ? `${d/60} hours` : `${Math.floor(d/60)} hours ${d%60} minutes` });
+      }
+      const ADVANCE_CHOICES = [
+        { value: "", label: "No restriction" },
+        { value: "15", label: "15 minutes" },
+        { value: "30", label: "30 minutes" },
+        { value: "60", label: "1 hour" },
+        { value: "120", label: "2 hours" },
+        { value: "240", label: "4 hours" },
+        { value: "720", label: "12 hours" },
+        { value: "1440", label: "24 hours" },
+        { value: "2880", label: "48 hours" },
+        { value: "4320", label: "72 hours" },
+        { value: "10080", label: "1 week" },
+      ];
+
+      function renderAppointmentTypes(el) {
+        el.innerHTML = `
+          <h3 class="text-lg font-semibold mb-4">Appointment Types</h3>
+          <p class="text-sm text-[hsl(var(--muted-foreground))] mb-4">Add the services people can book.</p>
+          <div id="at-list" class="space-y-2 mb-4"></div>
+          <div class="border-t pt-4 space-y-3 max-w-md">
+            <div>
+              <label class="label">Name</label>
+              <input class="input" id="at-name" placeholder="e.g. Initial Consultation">
+            </div>
+            <div>
+              <label class="label">Duration</label>
+              <select class="input" id="at-duration">
+                ${DURATION_CHOICES.map(c => `<option value="${c.value}">${c.label}</option>`).join("")}
+              </select>
+            </div>
+            <div>
+              <label class="label">Advance Notice</label>
+              <select class="input" id="at-notice">
+                ${ADVANCE_CHOICES.map(c => `<option value="${c.value}">${c.label}</option>`).join("")}
+              </select>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="addAppointmentType()">+ Add</button>
+          </div>
+        `;
+        renderAppointmentTypeList();
+      }
+
+      function renderAppointmentTypeList() {
+        const el = document.getElementById("at-list");
+        if (!formData.appointment_types.length) {
+          el.innerHTML = '<div class="text-sm text-[hsl(var(--muted-foreground))]">No appointment types configured.</div>';
+          return;
+        }
+        el.innerHTML = formData.appointment_types.map((a, i) => `
+          <div class="flex items-center justify-between py-1">
+            <div>
+              <span class="font-medium text-sm">${esc(a.name)}</span>
+              <span class="text-xs text-[hsl(var(--muted-foreground))] ml-2">${a.duration_minutes} min${a.advance_notice_minutes ? ` · ${a.advance_notice_minutes} min notice` : ''}</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="removeAppointmentType(${i})">✕</button>
+          </div>
+        `).join("");
+      }
+
+      function addAppointmentType() {
+        const name = document.getElementById("at-name").value.trim();
+        if (!name) { toast("Name is required", "error"); return; }
+        const duration = parseInt(document.getElementById("at-duration").value);
+        const noticeRaw = document.getElementById("at-notice").value;
+        const notice = noticeRaw ? parseInt(noticeRaw) : null;
+        formData.appointment_types.push({ name, duration_minutes: duration, advance_notice_minutes: notice });
+        document.getElementById("at-name").value = "";
+        renderAppointmentTypeList();
+      }
+
+      function removeAppointmentType(i) {
+        formData.appointment_types.splice(i, 1);
+        renderAppointmentTypeList();
+      }
+
+      function saveAppointmentTypesStep() {
+        return true; // already saved in addAppointmentType
+      }
+
+      // ── Step 3: Blocked Times ──
+      function renderBlockedTimes(el) {
+        el.innerHTML = `
+          <h3 class="text-lg font-semibold mb-4">Blocked Times</h3>
+          <p class="text-sm text-[hsl(var(--muted-foreground))] mb-4">Add date ranges when appointments are not available.</p>
+          <div id="bt-list" class="space-y-2 mb-4"></div>
+          <div class="border-t pt-4 space-y-3 max-w-md">
+            <div>
+              <label class="label">Reason</label>
+              <input class="input" id="bt-reason" placeholder="e.g. Vacation">
+            </div>
+            <div class="flex gap-3">
+              <div class="flex-1">
+                <label class="label">Start Date</label>
+                <input class="input" id="bt-start" type="date">
+              </div>
+              <div class="flex-1">
+                <label class="label">End Date</label>
+                <input class="input" id="bt-end" type="date">
+              </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="addBlockedTime()">+ Add</button>
+          </div>
+        `;
+        renderBlockedTimeList();
+      }
+
+      function renderBlockedTimeList() {
+        const el = document.getElementById("bt-list");
+        if (!formData.blocked_times.length) {
+          el.innerHTML = '<div class="text-sm text-[hsl(var(--muted-foreground))]">No blocked times configured.</div>';
+          return;
+        }
+        el.innerHTML = formData.blocked_times.map((b, i) => `
+          <div class="flex items-center justify-between py-1">
+            <div>
+              <span class="font-medium text-sm">${esc(b.reason)}</span>
+              <span class="text-xs text-[hsl(var(--muted-foreground))] ml-2">${b.start ? b.start.slice(0,10) : ''} → ${b.end ? b.end.slice(0,10) : ''}</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="removeBlockedTime(${i})">✕</button>
+          </div>
+        `).join("");
+      }
+
+      function addBlockedTime() {
+        const reason = document.getElementById("bt-reason").value.trim();
+        if (!reason) { toast("Reason is required", "error"); return; }
+        const startDate = document.getElementById("bt-start").value;
+        const endDate = document.getElementById("bt-end").value;
+        if (!startDate || !endDate) { toast("Start and end dates are required", "error"); return; }
+        const tz = formData.timezone;
+        const start = new Date(startDate + "T00:00:00").toISOString();
+        const end = new Date(endDate + "T23:59:00").toISOString();
+        formData.blocked_times.push({ reason, start, end });
+        document.getElementById("bt-reason").value = "";
+        document.getElementById("bt-start").value = "";
+        document.getElementById("bt-end").value = "";
+        renderBlockedTimeList();
+      }
+
+      function removeBlockedTime(i) {
+        formData.blocked_times.splice(i, 1);
+        renderBlockedTimeList();
+      }
+
+      function saveBlockedTimesStep() {}
+
+      // ── Step 4: Review ──
+      function renderReview(el) {
+        const ruleCount = formData.rules.length;
+        const atCount = formData.appointment_types.length;
+        const btCount = formData.blocked_times.length;
+        const daysWithRules = new Set(formData.rules.map(r => r.weekday)).size;
+        el.innerHTML = `
+          <h3 class="text-lg font-semibold mb-4">Review & Save</h3>
+          <div class="space-y-3">
+            <div class="flex justify-between py-2 border-b">
+              <span class="font-medium">Name</span>
+              <span>${esc(formData.name)}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b">
+              <span class="font-medium">Email</span>
+              <span>${esc(formData.email)}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b">
+              <span class="font-medium">Timezone</span>
+              <span>${esc(formData.timezone)}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b">
+              <span class="font-medium">Availability Rules</span>
+              <span>${ruleCount} block${ruleCount !== 1 ? 's' : ''} across ${daysWithRules} day${daysWithRules !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b">
+              <span class="font-medium">Appointment Types</span>
+              <span>${atCount}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b">
+              <span class="font-medium">Blocked Times</span>
+              <span>${btCount}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      // ── Finish: save everything ──
+      async function finishSetup() {
+        const nextBtn = document.getElementById("btn-next");
+        nextBtn.disabled = true;
+        nextBtn.textContent = "Saving...";
+
+        try {
+          if (editingUserId) {
+            // Update existing user
+            await api("PUT", `/setup/users/${editingUserId}`, {
+              name: formData.name,
+              email: formData.email,
+              timezone: formData.timezone,
+            });
+            const userId = editingUserId;
+            await syncRules(userId);
+            await syncAppointmentTypes(userId);
+            await syncBlockedTimes(userId);
+          } else {
+            // Create new user
+            const userId = crypto.randomUUID();
+            await api("POST", "/setup/users", {
+              id: userId,
+              name: formData.name,
+              email: formData.email,
+              timezone: formData.timezone,
+            });
+            await syncRules(userId);
+            await syncAppointmentTypes(userId);
+            await syncBlockedTimes(userId);
+            editingUserId = userId;
+          }
+
+          await loadUsers();
+          toast("Setup saved successfully!");
+          // Go back to user view
+          currentStep = 0;
+          renderStep();
+        } catch (e) {
+          toast(e.message, "error");
+          nextBtn.disabled = false;
+          nextBtn.textContent = "Save & Finish ✓";
+        }
+      }
+
+      async function syncRules(userId) {
+        // Get existing rules from server
+        const existing = await api("GET", `/setup/data`).then(data => {
+          const u = data.find(d => d.id === userId);
+          return u ? (u.rules || []) : [];
+        });
+        const existingIds = new Set(existing.map(r => r.id));
+        const formIds = new Set(formData.rules.filter(r => r.id).map(r => r.id));
+
+        // Delete removed rules
+        for (const r of existing) {
+          if (!formIds.has(r.id)) {
+            await api("DELETE", `/setup/rules/${r.id}`).catch(() => {});
+          }
+        }
+
+        // Create or update rules
+        for (const r of formData.rules) {
+          const payload = { user_id: userId, weekday: r.weekday, start: r.start, end: r.end, rrule: r.rrule };
+          if (r.id && existingIds.has(r.id)) {
+            await api("PUT", `/setup/rules/${r.id}`, payload);
+          } else {
+            await api("POST", "/setup/rules", payload);
+          }
+        }
+      }
+
+      async function syncAppointmentTypes(userId) {
+        const existing = await api("GET", `/setup/data`).then(data => {
+          const u = data.find(d => d.id === userId);
+          return u ? (u.appointment_types || []) : [];
+        });
+        const existingIds = new Set(existing.map(a => a.id));
+        const formIds = new Set(formData.appointment_types.filter(a => a.id).map(a => a.id));
+
+        for (const a of existing) {
+          if (!formIds.has(a.id)) {
+            await api("DELETE", `/setup/appointment-types/${a.id}`).catch(() => {});
+          }
+        }
+
+        for (const a of formData.appointment_types) {
+          const payload = { user_id: userId, name: a.name, duration_minutes: a.duration_minutes, advance_notice_minutes: a.advance_notice_minutes };
+          if (a.id && existingIds.has(a.id)) {
+            await api("PUT", `/setup/appointment-types/${a.id}`, payload);
+          } else {
+            await api("POST", "/setup/appointment-types", payload);
+          }
+        }
+      }
+
+      async function syncBlockedTimes(userId) {
+        const existing = await api("GET", `/setup/data`).then(data => {
+          const u = data.find(d => d.id === userId);
+          return u ? (u.blocked_times || []) : [];
+        });
+        const existingIds = new Set(existing.map(b => b.id));
+        const formIds = new Set(formData.blocked_times.filter(b => b.id).map(b => b.id));
+
+        for (const b of existing) {
+          if (!formIds.has(b.id)) {
+            await api("DELETE", `/setup/blocked-times/${b.id}`).catch(() => {});
+          }
+        }
+
+        for (const b of formData.blocked_times) {
+          const payload = { user_id: userId, reason: b.reason, start: b.start, end: b.end };
+          if (b.id && existingIds.has(b.id)) {
+            await api("PUT", `/setup/blocked-times/${b.id}`, payload);
+          } else {
+            await api("POST", "/setup/blocked-times", payload);
+          }
+        }
+      }
+
+      // ── Init ──
+      loadUsers();
+    </script>
+  </body>
+</html>

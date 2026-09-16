@@ -12,6 +12,7 @@ from api.dependencies import DEFAULT_DATABASE_PATH
 from api.routes.agent import gradio_chat
 from api.routes.appointments import create_router as create_appointments_router
 from api.routes.dashboard import create_router as create_dashboard_router
+from api.routes.setup import create_router as create_setup_router
 from api.routes.users import create_router as create_users_router
 from config import Config
 from core.db import close_db, get_db, init_db
@@ -26,13 +27,13 @@ logger = logging.getLogger(__name__)
 
 
 def create_app(
-    database_path: str | Path = DEFAULT_DATABASE_PATH, on_startup=None
+    database_path: str | Path = DEFAULT_DATABASE_PATH, on_startup=None, sync_config=True
 ) -> FastAPI:
     database_path = Path(database_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        await init_db(database_path)
+        await init_db(database_path, sync_config=sync_config)
         if on_startup:
             await on_startup(database_path)
 
@@ -76,6 +77,7 @@ def create_app(
     app.include_router(create_appointments_router(database_path))
     app.state.dashboard_sessions = {}
     app.include_router(create_dashboard_router(database_path), include_in_schema=False)
+    app.include_router(create_setup_router(database_path), include_in_schema=False)
 
     @app.post("/integrations/telegram/webhook")
     async def telegram_webhook(request: Request) -> Response:

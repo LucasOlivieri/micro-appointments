@@ -145,6 +145,13 @@ class AppointmentsService:
             return None
         return _serialize_user(user)
 
+    async def delete_user(self, user_id):
+        user = await self.users.get_by_id(user_id)
+        if user is None:
+            return None
+        await self.users.delete_by_id(user_id)
+        return _serialize_user(user)
+
     async def list_users(self):
         rows = await self.users.list_all()
         return [_serialize_user(row) for row in rows]
@@ -160,6 +167,16 @@ class AppointmentsService:
         rows = await self.rules.list_by_user(user_id)
         return [_serialize_rule(row) for row in rows]
 
+    async def update_rule(self, rule_id, changes):
+        payload = dict(changes)
+        if "user" in payload and "user_id" not in payload:
+            payload["user_id"] = payload.pop("user")
+        updated = await self.rules.update(rule_id, **payload)
+        return _serialize_rule(updated)
+
+    async def delete_rule(self, rule_id):
+        await self.rules.delete_by_id(rule_id)
+
     async def create_appointment_type(self, payload):
         body = dict(payload)
         if "user" in body and "user_id" not in body:
@@ -170,6 +187,16 @@ class AppointmentsService:
     async def list_appointment_types(self, user_id):
         rows = await self.appointment_types.list_by_user(user_id)
         return [_serialize_appointment_type(row) for row in rows]
+
+    async def update_appointment_type(self, type_id, changes):
+        payload = dict(changes)
+        if "user" in payload and "user_id" not in payload:
+            payload["user_id"] = payload.pop("user")
+        updated = await self.appointment_types.update(type_id, **payload)
+        return _serialize_appointment_type(updated)
+
+    async def delete_appointment_type(self, type_id):
+        await self.appointment_types.delete_by_id(type_id)
 
     async def find_customer_by_phone(self, phone):
         customer = await self.customers.get_by_phone(phone)
