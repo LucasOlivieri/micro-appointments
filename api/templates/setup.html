@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark light">
     <title>Setup — micro-appointments</title>
+    <script>
+      // Theme: system preference by default, overridable via the toggle (persisted in localStorage).
+      (function () {
+        const stored = localStorage.getItem("appointments-dashboard-theme");
+        const theme = stored === "dark" || stored === "light"
+          ? stored
+          : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.classList.toggle("dark", theme === "dark");
+      })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -30,41 +40,43 @@
     </script>
     <style>
       :root {
-        --background: 210 40% 98%;
-        --foreground: 222 47% 11%;
-        --card: 0 0% 100%;
-        --card-foreground: 222 47% 11%;
-        --primary: 221 83% 53%;
-        --primary-foreground: 210 40% 98%;
-        --secondary: 210 40% 96%;
-        --secondary-foreground: 222 47% 11%;
-        --muted: 210 40% 96%;
-        --muted-foreground: 215 16% 47%;
-        --accent: 210 40% 96%;
-        --accent-foreground: 222 47% 11%;
-        --destructive: 0 84% 60%;
-        --destructive-foreground: 210 40% 98%;
-        --border: 214 32% 91%;
-        --input: 214 32% 91%;
-        --ring: 221 83% 53%;
-        --radius: 0.5rem;
+        --background: 45 86% 94%;
+        --foreground: 192 81% 14%;
+        --card: 44 42% 88%;
+        --card-foreground: 192 81% 14%;
+        --primary: 331 64% 52%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 175 59% 40%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 44 42% 88%;
+        --muted-foreground: 195 14% 40%;
+        --accent: var(--primary);
+        --accent-foreground: 0 0% 100%;
+        --destructive: 1 71% 52%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 180 7% 60%;
+        --input: 180 7% 60%;
+        --ring: 331 64% 52%;
+        --radius: 0.45rem;
       }
       .dark {
-        --background: 222 47% 11%;
-        --foreground: 210 40% 98%;
-        --card: 222 47% 14%;
-        --card-foreground: 210 40% 98%;
-        --primary: 217 91% 60%;
-        --primary-foreground: 222 47% 11%;
-        --secondary: 217 33% 17%;
-        --secondary-foreground: 210 40% 98%;
-        --muted: 217 33% 17%;
-        --muted-foreground: 215 20% 65%;
-        --accent: 217 33% 17%;
-        --accent-foreground: 210 40% 98%;
-        --border: 217 33% 17%;
-        --input: 217 33% 17%;
-        --ring: 224 76% 48%;
+        --background: 192 100% 11%;
+        --foreground: 180 7% 60%;
+        --card: 192 81% 14%;
+        --card-foreground: 180 7% 60%;
+        --primary: 331 64% 52%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 175 59% 40%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 195 14% 40%;
+        --muted-foreground: 180 7% 60%;
+        --accent: var(--primary);
+        --accent-foreground: 0 0% 100%;
+        --destructive: 1 71% 52%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 195 14% 40%;
+        --input: 195 14% 40%;
+        --ring: 331 64% 52%;
       }
       body { background: hsl(var(--background)); color: hsl(var(--foreground)); font-family: system-ui, -apple-system, sans-serif; }
 
@@ -72,7 +84,7 @@
       .week-grid { display: grid; grid-template-columns: 60px repeat(7, 1fr); gap: 2px; user-select: none; }
       .week-grid .header { font-size: 0.75rem; font-weight: 600; text-align: center; padding: 6px 2px; color: hsl(var(--muted-foreground)); }
       .week-grid .time-label { font-size: 0.7rem; color: hsl(var(--muted-foreground)); text-align: right; padding-right: 6px; line-height: 10px; }
-      .week-grid .cell { height: 10px; border-radius: 3px; background: hsl(var(--secondary)); cursor: pointer; transition: background 0.1s; }
+      .week-grid .cell { height: 10px; border-radius: 3px; border: 1px solid hsl(var(--muted-foreground)); cursor: pointer; transition: background 0.1s; }
       .week-grid .cell:hover { background: hsl(var(--accent)); }
       .week-grid .cell.active { background: hsl(var(--primary)); opacity: 0.7; }
       .week-grid .cell.active-drag { background: hsl(var(--primary)); opacity: 0.85; }
@@ -140,6 +152,10 @@
           <p class="text-sm text-[hsl(var(--muted-foreground))]">Configure users, availability, appointment types, and blocked times</p>
         </div>
         <div class="flex gap-2">
+          <button id="theme-toggle" class="btn btn-secondary btn-sm" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+            <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          </button>
           <button class="btn btn-secondary btn-sm" onclick="location.href='/admin'">Admin Panel</button>
           <button class="btn btn-secondary btn-sm" onclick="location.href='/dashboard'">Dashboard</button>
         </div>
@@ -917,6 +933,31 @@
 
       // ── Init ──
       loadUsers();
+
+      // ── Theme toggle (shared with dashboard) ──
+      const themeToggle = document.querySelector("#theme-toggle");
+      const themeIconSun = document.querySelector("#theme-icon-sun");
+      const themeIconMoon = document.querySelector("#theme-icon-moon");
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+      const themeKey = "appointments-dashboard-theme";
+      const currentTheme = () => {
+        const stored = localStorage.getItem(themeKey);
+        return stored === "dark" || stored === "light" ? stored : (systemTheme.matches ? "dark" : "light");
+      };
+      const applyTheme = theme => {
+        document.documentElement.classList.toggle("dark", theme === "dark");
+        themeIconSun.style.display = theme === "dark" ? "none" : "block";
+        themeIconMoon.style.display = theme === "dark" ? "block" : "none";
+      };
+      themeToggle.addEventListener("click", () => {
+        const next = currentTheme() === "dark" ? "light" : "dark";
+        localStorage.setItem(themeKey, next);
+        applyTheme(next);
+      });
+      systemTheme.addEventListener("change", event => {
+        if (!localStorage.getItem(themeKey)) applyTheme(event.matches ? "dark" : "light");
+      });
+      applyTheme(currentTheme());
     </script>
   </body>
 </html>
