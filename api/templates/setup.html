@@ -71,11 +71,26 @@
       /* Week grid */
       .week-grid { display: grid; grid-template-columns: 60px repeat(7, 1fr); gap: 2px; user-select: none; }
       .week-grid .header { font-size: 0.75rem; font-weight: 600; text-align: center; padding: 6px 2px; color: hsl(var(--muted-foreground)); }
-      .week-grid .time-label { font-size: 0.7rem; color: hsl(var(--muted-foreground)); text-align: right; padding-right: 6px; line-height: 28px; }
-      .week-grid .cell { height: 28px; border-radius: 3px; background: hsl(var(--secondary)); cursor: pointer; transition: background 0.1s; }
+      .week-grid .time-label { font-size: 0.7rem; color: hsl(var(--muted-foreground)); text-align: right; padding-right: 6px; line-height: 10px; }
+      .week-grid .cell { height: 10px; border-radius: 3px; background: hsl(var(--secondary)); cursor: pointer; transition: background 0.1s; }
       .week-grid .cell:hover { background: hsl(var(--accent)); }
       .week-grid .cell.active { background: hsl(var(--primary)); opacity: 0.7; }
       .week-grid .cell.active-drag { background: hsl(var(--primary)); opacity: 0.85; }
+
+      .drag-tooltip {
+        position: fixed;
+        z-index: 200;
+        pointer-events: none;
+        background: hsl(var(--foreground));
+        color: hsl(var(--background));
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 6px;
+        white-space: nowrap;
+        transform: translate(-50%, -130%);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      }
 
       /* Steps */
       .step-indicator { display: flex; gap: 0; margin-bottom: 24px; }
@@ -396,7 +411,20 @@
         return true;
       }
 
-      // ── Step 1: Availability (week grid) ──
+      // ── Step 1: Availability (week grid, 15-minute slots) ──
+      const SLOTS_PER_DAY = 96; // 24 hours × 15-minute slots
+
+      function slotToTime(slot) {
+        const h = Math.floor(slot / 4);
+        const m = (slot % 4) * 15;
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      }
+
+      function timeStringToSlot(t) {
+        const [h, m] = String(t || "").split(":").map(n => parseInt(n) || 0);
+        return h * 4 + Math.floor(m / 15);
+      }
+
       let dragStart = null;
       let dragCells = [];
 
@@ -407,9 +435,9 @@
           <div class="week-grid" id="week-grid">
             <div></div>
             ${WEEKDAY_NAMES.map(d => `<div class="header">${d}</div>`).join("")}
-            ${Array.from({ length: 24 }, (_, h) => `
-              <div class="time-label">${String(h).padStart(2, '0')}:00</div>
-              ${WEEKDAY_NAMES.map((_, w) => `<div class="cell" data-hour="${h}" data-day="${w}" id="cell-${w}-${h}"></div>`).join("")}
+            ${Array.from({ length: SLOTS_PER_DAY }, (_, slot) => `
+              <div class="time-label">${slot % 4 === 0 ? String(Math.floor(slot / 4)).padStart(2, '0') + ":00" : ""}</div>
+              ${WEEKDAY_NAMES.map((_, w) => `<div class="cell" data-slot="${slot}" data-day="${w}" id="cell-${w}-${slot}"></div>`).join("")}
             `).join("")}
           </div>
           <div class="mt-4 flex gap-2">
@@ -418,16 +446,17 @@
           <div class="mt-3 text-xs text-[hsl(var(--muted-foreground))]">
             <span class="inline-block w-3 h-3 rounded bg-[hsl(var(--primary))] opacity-70 align-middle mr-1"></span> Available
           </div>
+          <div class="drag-tooltip" id="drag-tooltip" style="display:none;"></div>
         `;
 
         // Render existing rules — handle both weekday field and rrule BYDAY
         formData.rules.forEach(r => {
           const days = parseWeekdaysFromRule(r);
-          const startH = parseInt(r.start.split(":")[0]);
-          const endH = parseInt(r.end.split(":")[0]);
+          const startSlot = timeStringToSlot(r.start);
+          const endSlot = timeStringToSlot(r.end);
           days.forEach(day => {
-            for (let h = startH; h < endH; h++) {
-              const cell = document.getElementById(`cell-${day}-${h}`);
+            for (let s = startSlot; s < endSlot; s++) {
+              const cell = document.getElementById(`cell-${day}-${s}`);
               if (cell) cell.classList.add("active");
             }
           });
@@ -435,13 +464,41 @@
 
         // Drag handling
         const grid = document.getElementById("week-grid");
+        const tooltip = document.getElementById("drag-tooltip");
         let isDragging = false;
+        let dragEndDay = null;
+        let dragEndSlot = null;
+
+        function formatDuration(minutes) {
+          if (minutes < 60) return `${minutes}m`;
+          const h = Math.floor(minutes / 60);
+          const m = minutes % 60;
+          return m === 0 ? `${h}h` : `${h}h ${m}m`;
+        }
+
+        function showTooltip(e) {
+          const startSlot = dragStart.slot;
+          const endSlot = dragEndSlot;
+          const dragStartMin = startSlot * 15;
+          const dragEndMin = (endSlot + 1) * 15;
+          const text = `${slotToTime(Math.min(startSlot, endSlot))} – ${slotToTime(Math.max(startSlot, endSlot) + 1)} · ${formatDuration(Math.abs(dragEndMin - dragStartMin))}`;
+          tooltip.textContent = text;
+          tooltip.style.display = "block";
+          tooltip.style.left = e.clientX + "px";
+          tooltip.style.top = e.clientY + "px";
+        }
+
+        function hideTooltip() {
+          tooltip.style.display = "none";
+        }
 
         grid.addEventListener("mousedown", (e) => {
           const cell = e.target.closest(".cell");
           if (!cell) return;
           isDragging = true;
-          dragStart = { day: parseInt(cell.dataset.day), hour: parseInt(cell.dataset.hour) };
+          dragStart = { day: parseInt(cell.dataset.day), slot: parseInt(cell.dataset.slot) };
+          dragEndDay = dragStart.day;
+          dragEndSlot = dragStart.slot;
           dragCells = [cell];
           cell.classList.add("active-drag");
         });
@@ -451,38 +508,42 @@
           const cell = e.target.closest(".cell");
           if (!cell) return;
           const day = parseInt(cell.dataset.day);
-          const hour = parseInt(cell.dataset.hour);
+          const slot = parseInt(cell.dataset.slot);
           // Only allow same-day drag
           if (day !== dragStart.day) return;
+          dragEndDay = day;
+          dragEndSlot = slot;
           // Clear previous drag highlights
           document.querySelectorAll(".cell.active-drag").forEach(c => c.classList.remove("active-drag"));
           // Highlight range
-          const minH = Math.min(dragStart.hour, hour);
-          const maxH = Math.max(dragStart.hour, hour);
-          for (let h = minH; h <= maxH; h++) {
-            const c = document.getElementById(`cell-${day}-${h}`);
+          const minS = Math.min(dragStart.slot, slot);
+          const maxS = Math.max(dragStart.slot, slot);
+          for (let s = minS; s <= maxS; s++) {
+            const c = document.getElementById(`cell-${day}-${s}`);
             if (c) { c.classList.add("active-drag"); dragCells.push(c); }
           }
+          showTooltip(e);
         });
 
         const endDrag = () => {
           if (!isDragging) return;
           isDragging = false;
+          hideTooltip();
           // Convert drag to toggle
           const activeCells = document.querySelectorAll(".cell.active-drag");
           const day = dragStart.day;
-          const hours = Array.from(activeCells).map(c => parseInt(c.dataset.hour)).sort((a, b) => a - b);
-          if (hours.length === 0) return;
+          const slots = Array.from(activeCells).map(c => parseInt(c.dataset.slot)).sort((a, b) => a - b);
+          if (slots.length === 0) return;
 
-          // Check if all these hours are already active → remove them
-          const allActive = hours.every(h => document.getElementById(`cell-${day}-${h}`).classList.contains("active"));
+          // Check if all these slots are already active → remove them
+          const allActive = slots.every(s => document.getElementById(`cell-${day}-${s}`).classList.contains("active"));
           if (allActive) {
             // Remove this range
-            hours.forEach(h => document.getElementById(`cell-${day}-${h}`).classList.remove("active", "active-drag"));
+            slots.forEach(s => document.getElementById(`cell-${day}-${s}`).classList.remove("active", "active-drag"));
           } else {
-            // Toggle each hour in range
-            hours.forEach(h => {
-              const c = document.getElementById(`cell-${day}-${h}`);
+            // Toggle each slot in range
+            slots.forEach(s => {
+              const c = document.getElementById(`cell-${day}-${s}`);
               if (c) c.classList.add("active");
               if (c) c.classList.remove("active-drag");
             });
@@ -491,10 +552,13 @@
           document.querySelectorAll(".cell.active-drag").forEach(c => c.classList.remove("active-drag"));
           dragCells = [];
           dragStart = null;
+          dragEndDay = null;
+          dragEndSlot = null;
         };
 
         grid.addEventListener("mouseup", endDrag);
         grid.addEventListener("mouseleave", endDrag);
+        document.addEventListener("mouseup", endDrag);
 
         // Click single cell to toggle
         grid.addEventListener("click", (e) => {
@@ -502,6 +566,14 @@
           const cell = e.target.closest(".cell");
           if (!cell) return;
           cell.classList.toggle("active");
+        });
+
+        // Right-click removes an existing availability block (no native menu)
+        grid.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          const cell = e.target.closest(".cell");
+          if (!cell) return;
+          cell.classList.remove("active", "active-drag");
         });
       }
 
@@ -515,28 +587,20 @@
         const rules = [];
         for (let day = 0; day < 7; day++) {
           let rangeStart = null;
-          for (let h = 0; h < 24; h++) {
-            const cell = document.getElementById(`cell-${day}-${h}`);
-            const isActive = cell && cell.classList.contains("active");
+          for (let s = 0; s <= SLOTS_PER_DAY; s++) {
+            const cell = s < SLOTS_PER_DAY ? document.getElementById(`cell-${day}-${s}`) : null;
+            const isActive = s < SLOTS_PER_DAY && cell && cell.classList.contains("active");
             if (isActive && rangeStart === null) {
-              rangeStart = h;
+              rangeStart = s;
             } else if (!isActive && rangeStart !== null) {
               rules.push({
                 weekday: day,
-                start: `${String(rangeStart).padStart(2, "0")}:00`,
-                end: `${String(h).padStart(2, "0")}:00`,
+                start: slotToTime(rangeStart),
+                end: slotToTime(s),
                 rrule: `FREQ=WEEKLY;BYDAY=${RRULE_WEEKDAYS[day]}`,
               });
               rangeStart = null;
             }
-          }
-          if (rangeStart !== null) {
-            rules.push({
-              weekday: day,
-              start: `${String(rangeStart).padStart(2, "0")}:00`,
-              end: "24:00",
-              rrule: `FREQ=WEEKLY;BYDAY=${RRULE_WEEKDAYS[day]}`,
-            });
           }
         }
         formData.rules = rules;
