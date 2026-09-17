@@ -1,17 +1,19 @@
 # Micro Appointments
 
-A small scheduling app for managing doctors or staff calendars, appointment types, and booked availability. It uses SQLite via aiosqlite as the persistence layer, a FastAPI API for interacting with the calendar, and configuration-driven user setup.
+A small scheduling app for managing doctors or staff calendars, appointment types, and booked availability. It uses **SQLite via aiosqlite** for persistence, **raw SQL** repositories with cached query files, a **FastAPI** API for interacting with the calendar, and configuration-driven user setup.
 
 [![CI/CD](https://github.com/LucasOlivieri/micro-appointments/actions/workflows/ci.yml/badge.svg)](https://github.com/LucasOlivieri/micro-appointments/actions/workflows/ci.yml)
 
 ## Features
 
 - Configurable users with timezone-aware calendar rules
-- Recurring weekly availability rules
-- Appointment type definitions with duration values
+- Recurring weekly availability rules (RRULE support)
+- Appointment type definitions with duration and advance-notice values
 - Blocked time ranges for vacations or maintenance
 - Booking logic that prevents double-booking
-- FastAPI endpoints for listing users and scheduling appointments
+- Setup UI (`/setup`) — browser-based CRUD for users, rules, appointment types, blocked times
+- Admin panel (`/{ADMIN_URL}`) — SQLite database browser with HTTP Basic Auth
+- Read-only dashboard (`/dashboard`) for calendar overview
 - Agent tooling for an LLM-style assistant to operate the calendar
 - Telegram webhook integration for the receptionist assistant
 - Discord bot integration for the receptionist assistant
@@ -33,6 +35,8 @@ flowchart TD
         R2["routes/appointments"]:::route
         R3["routes/dashboard"]:::route
         R4["routes/agent"]:::route
+        R5["routes/setup"]:::route
+        Admin["admin (SQLite panel)"]:::route
     end
 
     subgraph Service["Service Layer"]
@@ -41,9 +45,9 @@ flowchart TD
     end
 
     subgraph Persistence["Persistence Layer"]
-        Repo["Repositories<br/>core/repositories/"]:::repo
-        Queries["SQL query cache<br/>core/queries/"]:::repo
-        Migrations["Migrations<br/>core/migrations/"]:::repo
+        Repo["Repositories (raw SQL)<br/>core/repositories/"]:::repo
+        Queries["SQL query cache<br/>core/queries/*.sql"]:::repo
+        Migrations["SQL migration files<br/>core/migrations/"]:::repo
         DB[("SQLite<br/>(aiosqlite)")]:::db
     end
 
@@ -51,16 +55,18 @@ flowchart TD
         CFG["config.json"]:::config
         Setup["setup.py"]:::config
         Backup["backup_config.py"]:::config
+        Env[".env / config.py"]:::config
     end
 
-    A --> R1 & R2 & R3 & R4
+    A --> R1 & R2 & R3 & R4 & R5 & Admin
     B --> S
     C --> A
     D --> S
-    R1 & R2 & R4 --> S
+    R1 & R2 & R4 & R5 --> S
     R3 --> DB
     S --> Repo
     Repo --> Queries --> DB
+    Admin --> DB
     CFG --> Migrations --> DB
     Migrations --> Repo
     Setup --> CFG
@@ -78,29 +84,62 @@ flowchart TD
 
 ## Project structure
 
-- `api/` — FastAPI application and routes
+- `api/` — FastAPI application and route layer
+- `api/admin/` — SQLite admin panel (DB browser, mounted at `/{ADMIN_URL}`)
+- `api/routes/setup.py` — Setup UI CRUD endpoints
 - `bot/` — agent/client tooling used by the assistant
 - `core/` — scheduling logic, DB bootstrap, migration, service orchestration, and repository layer
 - `core/services/appointments.py` — `AppointmentsService` orchestrating scheduling and booking behavior
-- `core/repositories/` — one async repository per entity, backed by raw SQL
+- `core/repositories/` — one async repository per entity, backed by raw SQL (no ORM)
 - `core/queries/` — hand-written `.sql` files organized by entity
 - `core/migrations/` — project-managed SQL migration files
+- `integrations/` — Telegram, Discord, and Google Calendar integration implementations
 - `tests/` — pytest coverage for app behavior
 - `config.json` — runtime user configuration used to seed the database
-- `setup.py` — interactive config generator
+- `config.py` — environment-variable-based configuration (loaded via `python-dotenv`)
+- `setup.py` — interactive config generator (CLI)
+- `backup_config.py` — export database state back to `config.json` format
 
 ## Core architecture
 
 The business layer keeps persistence concerns inside `core/` and keeps the API layer thin and unaware of database detail.
 
 - `core/models.py` defines plain Python `@dataclass` models matching the SQLite schema.
-- `core/repositories/` provides repository modules for each entity and a shared base repository backed by raw SQL queries cached in `core/queries/`.
-- `core/services/appointments.py` contains `AppointmentsService`, which orchestrates booking and scheduling rules using the repositories instead of direct database calls.
+- `core/repositories/` provides async repository modules for each entity backed by **raw SQL** queries cached in `core/queries/*.sql` — no ORM is used.
+- `core/services/appointments.py` contains `AppointmentsService`, which orchestrates booking, scheduling rules, and CRUD operations using the repositories instead of direct database calls.
 - `api/` only accepts request payloads, delegates to the service, and serializes responses.
 
 This keeps the service reusable in tests, scripts, and integrations without coupling it to FastAPI or HTTP-specific concerns.
 
 ## Configuration
+
+Configuration is split across two sources:
+
+| Source | Purpose |
+|--------|---------|
+| `.env` / environment variables | API keys, model selection, feature flags, credentials |
+| `config.json` | Scheduling data — users, rules, appointment types, blocked times |
+
+### Environment variables (`.env`)
+
+All runtime configuration lives in environment variables loaded from `.env` via `python-dotenv`. Key variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `APPOINTMENTS_API_URL` | `http://127.0.0.1:8000` | Base URL for the API (used by the agent) |
+| `OPENAI_API_KEY` | — | LLM provider key |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Model name for the agent |
+| `OPENAI_BASE_URL` | — | Custom base URL (e.g. OpenRouter) |
+| `APPOINTMENTS_USER_ID` | — | Default user ID for the agent |
+| `AGENT_MEMORY_PATH` | `memory.sqlite3` | Path to agent conversation memory DB |
+| `DASHBOARD_SUPERUSER_KEY` | — | Superuser key for the read-only dashboard |
+| `ADMIN_USER` | `admin` | HTTP Basic Auth user for the SQLite admin panel |
+| `ADMIN_PASSWORD` | `admin` | HTTP Basic Auth password |
+| `ADMIN_URL` | `admin` | URL prefix for the admin panel (set to a secret value) |
+
+Integration flags are documented in their respective sections below.
+
+### Scheduling data (`config.json`)
 
 The app reads scheduling data from `config.json`.
 
@@ -180,9 +219,30 @@ Backups include all users, rules, appointment types, and blocked times in the sa
 
 The app initializes SQLite via `aiosqlite` in `core/db.py`. On startup it applies project-managed SQL migrations (plain SQL files in `core/migrations/`), then syncs data from `config.json` into the database tables.
 
-Persistence access is encapsulated behind the repository layer in `core/repositories/`, backed by hand-written queries organized by entity under `core/queries/`. Services like `AppointmentsService` remain the orchestration point for scheduling logic. This keeps the repository and service independent from the API while preserving the async database access pattern used throughout the app.
+Persistence access is encapsulated behind the repository layer in `core/repositories/`, each backed by **hand-written raw SQL queries** — no ORM is used. Query files live under `core/queries/` organized by entity. This gives full control over SQL while keeping the async database access pattern used throughout the app.
 
-This keeps the database aligned with the current configuration file without requiring manual SQL updates.
+Services like `AppointmentsService` remain the orchestration point for scheduling logic, keeping the repository and service independent from the API.
+
+## Setup UI (`/setup`)
+
+A browser-based management interface is available at `/setup` on the running API host. It requires the superuser key configured via `DASHBOARD_SUPERUSER_KEY` in `.env`.
+
+From the Setup UI you can:
+
+- **Users** — create, update, and delete users
+- **Rules** — manage weekly availability rules per user
+- **Appointment types** — configure duration and advance-notice per type
+- **Blocked times** — schedule vacation, maintenance, or closed periods
+
+All changes are persisted immediately to the database and reflected in the API's scheduling logic.
+
+## Admin panel (`/{ADMIN_URL}`)
+
+A full SQLite database browser is mounted under the URL prefix configured by `ADMIN_URL` (default: `/admin`). Access is protected by HTTP Basic Auth using `ADMIN_USER` / `ADMIN_PASSWORD` from `.env`.
+
+From the admin panel you can browse, search, and edit any table in the SQLite database. It's useful for inspecting raw data, debugging, or making manual corrections.
+
+**Security tip:** Set `ADMIN_URL` to a random unguessable string (e.g. a UUID) instead of the default `admin`.
 
 ## Run the API
 
@@ -281,13 +341,45 @@ maintenance, and other blocked-time ranges are ignored.
 Invalid configuration or API failures are logged without preventing the API
 from starting.
 
-## Read-only dashboard
+## Dashboard
 
 Open `/dashboard` on the API host to use the read-only dashboard. Configure the
 admin login with `DASHBOARD_SUPERUSER_KEY` in `.env`. A user logs in with the
 existing user's `id` as the key. Admins see all stored data; user logins only
 see their own calendar and related customers. Dashboard sessions are held in
 memory and are lost when the API restarts.
+
+## Deploy
+
+### 1. Configure environment
+
+```bash
+cp .env.example .env
+# Edit .env with your own values (API keys, secrets, etc.)
+```
+
+### 2. Run with Docker
+
+```bash
+docker build -t micro-appointments:local .
+docker run -p 8000:8000 \
+  -v "$(pwd)/config.json:/app/config.json" \
+  -v "$(pwd)/.env:/app/.env" \
+  micro-appointments:local
+```
+
+### 3. Run without Docker
+
+```bash
+uv sync
+uv run uvicorn api.main:app --reload
+```
+
+The Dockerfile uses a multi-stage build — `uv` exports pinned dependencies in the builder stage, then only runtime deps are installed in the slim runtime image. Configuration and secrets come from mounted volumes; the `.env` file is **not** baked into the image.
+
+Then open:
+
+- http://localhost:8000/docs for the FastAPI Swagger UI
 
 ## Run tests
 
@@ -339,12 +431,6 @@ To run all hooks manually:
 
 ```bash
 uv run pre-commit run --all-files
-```
-
-Optional (same container build used by CI on `main` pushes):
-
-```bash
-docker build -t micro-appointments:local .
 ```
 
 ## Notes

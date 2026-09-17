@@ -9,12 +9,11 @@ __pycache__/
 .ruff_cache/
 .ipynb_checkpoints/
 
-# Local runtime/state
+# Local runtime/state — never bake into images
+.env
 *.sqlite3
 db.sqlite3
 memory.sqlite3
 backups/
-
-# Tests/docs/dev files
-tests/
-tests.ipynb
+google_token.json
+credentials.json
