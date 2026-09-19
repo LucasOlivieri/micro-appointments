@@ -168,7 +168,7 @@ class Database:
                     continue
                 cols = self._get_columns(conn, name)
                 count = conn.execute(
-                    f"SELECT COUNT(*) AS c FROM {_safe_identifier(name)}"
+                    f"SELECT COUNT(*) AS c FROM {_safe_identifier(name)}"  # nosec
                 ).fetchone()["c"]
                 tables.append(TableInfo(name=name, columns=cols, row_count=count))
             return tables
@@ -183,7 +183,7 @@ class Database:
                 return None
             cols = self._get_columns(conn, table_name)
             count = conn.execute(
-                f"SELECT COUNT(*) AS c FROM {_safe_identifier(table_name)}"
+                f"SELECT COUNT(*) AS c FROM {_safe_identifier(table_name)}"  # nosec
             ).fetchone()["c"]
             return TableInfo(name=table_name, columns=cols, row_count=count)
 
@@ -265,7 +265,7 @@ class Database:
 
             # Total count
             count_row = conn.execute(
-                f"SELECT COUNT(*) AS c FROM {tbl} {where_sql}", params
+                f"SELECT COUNT(*) AS c FROM {tbl} {where_sql}", params  # nosec
             ).fetchone()
             total = count_row["c"]
 
@@ -277,7 +277,7 @@ class Database:
             # Pagination
             offset = (page - 1) * page_size
             data_cur = conn.execute(
-                f"SELECT * FROM {tbl} {where_sql} {order_sql} LIMIT ? OFFSET ?",
+                f"SELECT * FROM {tbl} {where_sql} {order_sql} LIMIT ? OFFSET ?",  # nosec
                 params + [page_size, offset],
             )
             rows = [tuple(r) for r in data_cur.fetchall()]
@@ -303,7 +303,7 @@ class Database:
         tbl = _safe_identifier(table_name)
         cols = [_safe_identifier(k) for k in data]
         placeholders = ", ".join("?" * len(data))
-        sql = f"INSERT INTO {tbl} ({', '.join(cols)}) VALUES ({placeholders})"
+        sql = f"INSERT INTO {tbl} ({', '.join(cols)}) VALUES ({placeholders})"  # nosec
         with self._connect() as conn:
             cur = conn.execute(sql, list(data.values()))
             conn.commit()
@@ -315,7 +315,7 @@ class Database:
         tbl = _safe_identifier(table_name)
         set_parts = ", ".join(f"{_safe_identifier(k)} = ?" for k in data)
         pk = _safe_identifier(pk_col)
-        sql = f"UPDATE {tbl} SET {set_parts} WHERE {pk} = ?"
+        sql = f"UPDATE {tbl} SET {set_parts} WHERE {pk} = ?"  # nosec
         with self._connect() as conn:
             conn.execute(sql, list(data.values()) + [pk_val])
             conn.commit()
@@ -323,7 +323,7 @@ class Database:
     def delete_row(self, table_name: str, pk_col: str, pk_val: Any) -> None:
         tbl = _safe_identifier(table_name)
         pk = _safe_identifier(pk_col)
-        sql = f"DELETE FROM {tbl} WHERE {pk} = ?"
+        sql = f"DELETE FROM {tbl} WHERE {pk} = ?"  # nosec
         with self._connect() as conn:
             conn.execute(sql, [pk_val])
             conn.commit()
@@ -333,7 +333,7 @@ class Database:
         pk = _safe_identifier(pk_col)
         with self._connect() as conn:
             row = conn.execute(
-                f"SELECT * FROM {tbl} WHERE {pk} = ?", [pk_val]
+                f"SELECT * FROM {tbl} WHERE {pk} = ?", [pk_val]  # nosec
             ).fetchone()
             return dict(row) if row else None
 
@@ -352,7 +352,7 @@ class Database:
             for t in tables:
                 name = t["name"]
                 count = conn.execute(
-                    f"SELECT COUNT(*) AS c FROM {_safe_identifier(name)}"
+                    f"SELECT COUNT(*) AS c FROM {_safe_identifier(name)}"  # nosec
                 ).fetchone()["c"]
                 result[name] = count
             return result

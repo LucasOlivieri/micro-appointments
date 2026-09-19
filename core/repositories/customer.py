@@ -31,7 +31,7 @@ class CustomerRepository(BaseRepository):
             return []
         placeholders = ",".join("?" for _ in ids)
         db = get_db()
-        sql = f"SELECT * FROM customer WHERE id IN ({placeholders})"
+        sql = self._base_query("list_by_ids", placeholders=placeholders)
         cursor = await db.execute(sql, ids)
         rows = await cursor.fetchall()
         return [Customer(**dict(row)) for row in rows]

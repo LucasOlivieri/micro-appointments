@@ -8,6 +8,7 @@
 .codebase-memory
 .github/context-mode
 .github/hooks
+.github/prompts
 .tokensave
 
 *.py[cod]
@@ -24,4 +25,4 @@ uv.lock
 credentials.json
 google_token.json
 logs
-# tests.ipynb
+tests.ipynb

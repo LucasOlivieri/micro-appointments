@@ -1,1 +1,1 @@
-SELECT * FROM customer WHERE id IN (placeholder)
+SELECT * FROM customer WHERE id IN ($placeholders)

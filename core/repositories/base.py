@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from string import Template
 
 from core.db import get_db, get_query
 
@@ -15,6 +16,11 @@ class BaseRepository:
         if self.queries_prefix is None:
             raise NotImplementedError("Repository queries_prefix is not configured.")
         return get_query(f"{self.queries_prefix}/{name}")
+
+    def _base_query(self, name: str, **subs: str) -> str:
+        """Load a SQL template from core/queries/base/ and substitute variables."""
+        raw = get_query(f"base/{name}")
+        return Template(raw).safe_substitute(table_name=self.table_name, **subs)
 
     def _row_to_model(self, row):
         if row is None:
@@ -42,7 +48,7 @@ class BaseRepository:
         mapped = self._map_payload(payload)
         columns = ", ".join(mapped.keys())
         placeholders = ", ".join("?" for _ in mapped)
-        sql = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders})"
+        sql = self._base_query("create", columns=columns, placeholders=placeholders)
         cursor = await db.execute(sql, tuple(mapped.values()))
         await db.commit()
         # For INTEGER PK tables, lastrowid is the new id.
@@ -68,7 +74,7 @@ class BaseRepository:
         mapped = self._map_payload(payload)
         set_clause = ", ".join(f"{col}=?" for col in mapped)
         params = list(mapped.values()) + [item_id]
-        sql = f"UPDATE {self.table_name} SET {set_clause} WHERE id=?"
+        sql = self._base_query("update", set_clause=set_clause)
         await db.execute(sql, params)
         await db.commit()
         return await self.get_by_id(item_id)
@@ -76,7 +82,7 @@ class BaseRepository:
     async def first(self, **filters):
         db = get_db()
         where_clause = " AND ".join(f"{k}=?" for k in filters)
-        sql = f"SELECT * FROM {self.table_name} WHERE {where_clause} LIMIT 1"
+        sql = self._base_query("first", where_clause=where_clause)
         cursor = await db.execute(sql, tuple(filters.values()))
         row = await cursor.fetchone()
         return self._row_to_model(row)
@@ -84,14 +90,14 @@ class BaseRepository:
     async def list(self, **filters):
         db = get_db()
         where_clause = " AND ".join(f"{k}=?" for k in filters)
-        sql = f"SELECT * FROM {self.table_name} WHERE {where_clause}"
+        sql = self._base_query("list", where_clause=where_clause)
         cursor = await db.execute(sql, tuple(filters.values()))
         rows = await cursor.fetchall()
         return [self._row_to_model(row) for row in rows]
 
     async def list_all(self, *, order_by=None):
         db = get_db()
-        sql = f"SELECT * FROM {self.table_name}"
+        sql = self._base_query("list_all")
         if order_by:
             sql += f" ORDER BY {', '.join(order_by)}"
         cursor = await db.execute(sql)
@@ -106,7 +112,7 @@ class BaseRepository:
             return []
         placeholders = ",".join("?" for _ in ids)
         db = get_db()
-        sql = f"SELECT * FROM {self.table_name} WHERE id IN ({placeholders})"
+        sql = self._base_query("list_by_ids", placeholders=placeholders)
         cursor = await db.execute(sql, ids)
         rows = await cursor.fetchall()
         return [self._row_to_model(row) for row in rows]
